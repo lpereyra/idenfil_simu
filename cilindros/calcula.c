@@ -497,7 +497,7 @@ void propiedades(int NNN, type_real *fof)
       //r  = sqrt(rcil2[j]/rcil2[0]);
       //r += sqrt(rcil2[j+1]/rcil2[0]);
       //r *= 0.5;
-      
+
       r  = sqrt(rcil2[j]);
       r += sqrt(rcil2[j+1]);
       r *= 0.5;
@@ -1070,15 +1070,12 @@ void stadistic(int n, type_real *MAX, type_real *MIN, type_real *LMAX)
   *LMAX *= 2.0;
 
   if(j%2==0) {
-      // if there is an even number of elements, return mean of the two elements in the middle
       median = (a[j/2] + a[j/2 - 1])*0.5;
       fprintf(stdout,"median %f\n",median);
   } else {
-      // else return the element in the middle
       median = a[j/2];
       fprintf(stdout,"median %f\n",median);
   }
-
 
   if(mean>median)
     *MAX = mean;
@@ -1088,7 +1085,6 @@ void stadistic(int n, type_real *MAX, type_real *MIN, type_real *LMAX)
   //*MAX = 500.*ceil(*MAX/1000.);
   *MAX = 14000.;  
   *MIN = *MAX/50.;
-
 
   free(a);
   
