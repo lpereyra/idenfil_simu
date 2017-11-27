@@ -12,7 +12,6 @@ EXTRAS += -DSORT_DERECHA
 #EXTRAS += -DMCRITIC
 
 #CC
-#CC     := $(OMPP) gcc $(DOMPP)
 CC     := $(OMPP) g++ $(DOMPP)
 DC     := -DNTHREADS=16
 #DC     += -DLOCK

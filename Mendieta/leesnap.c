@@ -174,31 +174,3 @@ void re_change_positions(int n, struct particle_data *Q){
     for(idim = 0; idim < 3; idim++)
       Q[ip].Pos[idim] += pmin[idim];
 }
-
-void select_particles(void){
-  int i,j;
-
-  fprintf(stdout,"Selecting particles within a subbox\n"); fflush(stdout);
-  
-  for(j = 0, i = 0; i < cp.npart; i++){
-    if((P[i].Pos[0] - box.cen[0]) >  cp.lbox/2.0) P[i].Pos[0] -= (type_real)cp.lbox;
-    if((P[i].Pos[0] - box.cen[0]) < -cp.lbox/2.0) P[i].Pos[0] += (type_real)cp.lbox;
-    if((P[i].Pos[1] - box.cen[1]) >  cp.lbox/2.0) P[i].Pos[1] -= (type_real)cp.lbox;
-    if((P[i].Pos[1] - box.cen[1]) < -cp.lbox/2.0) P[i].Pos[1] += (type_real)cp.lbox;
-    if((P[i].Pos[2] - box.cen[2]) >  cp.lbox/2.0) P[i].Pos[2] -= (type_real)cp.lbox;
-    if((P[i].Pos[2] - box.cen[2]) < -cp.lbox/2.0) P[i].Pos[2] += (type_real)cp.lbox;
-
-    ///////////////////////////////////////////////////
-    if(P[i].Pos[0] < (box.cen[0]-(box.lado+box.franja)) || 
-       P[i].Pos[0] > (box.cen[0]+(box.lado+box.franja)))continue;
-    if(P[i].Pos[1] < (box.cen[1]-(box.lado+box.franja)) || 
-       P[i].Pos[1] > (box.cen[1]+(box.lado+box.franja)))continue;
-    if(P[i].Pos[2] < (box.cen[2]-(box.lado+box.franja)) || 
-       P[i].Pos[2] > (box.cen[2]+(box.lado+box.franja)))continue;
-    ///////////////////////////////////////////////////
-
-    j++;
-  }
-  cp.npart = j;
-  P = (struct particle_data *) realloc(P,cp.npart*sizeof(struct particle_data));
-}

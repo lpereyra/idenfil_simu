@@ -31,11 +31,4 @@ struct io_header{
   char     fill[256- N_part_types*4- N_part_types*8- 2*8- 2*4- N_part_types*4- 2*4 - 4*8];  /* fills to 256 Bytes */
 } header;
 
-struct box_st{
-  type_real cen[3];
-  type_real max[3];
-  type_real min[3];
-  type_real franja;
-  type_real lado;
-} box;
 #endif

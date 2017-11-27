@@ -494,8 +494,12 @@ void propiedades(int NNN, type_real *fof)
     for(j=0;j<ncil;j++)
     {
 
-      r  = sqrt(rcil2[j]/rcil2[0]);
-      r += sqrt(rcil2[j+1]/rcil2[0]);
+      //r  = sqrt(rcil2[j]/rcil2[0]);
+      //r += sqrt(rcil2[j+1]/rcil2[0]);
+      //r *= 0.5;
+      
+      r  = sqrt(rcil2[j]);
+      r += sqrt(rcil2[j+1]);
       r *= 0.5;
 
       fwrite(&r,sizeof(type_real),1,pfdens[Tid]);       // rbin_centre
