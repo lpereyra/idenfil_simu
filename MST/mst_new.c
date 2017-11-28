@@ -183,7 +183,8 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
     i = mass_orden.back().second;
 
     //if(Padre[i]>=0)
-    if(Rank[i]==1 && Padre[i]>=0)
+    //if(Rank[i]==1 && Padre[i]>=0)
+    if(Padre[i]>=0)
     {
       aux.push_back(i);
       id = Padre[i];
@@ -212,8 +213,6 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
         Rank[id] *= -1;
         id = Padre[id];               
       }
-
-      id = aux.back();
 
       segmentos.push_back(aux);
 

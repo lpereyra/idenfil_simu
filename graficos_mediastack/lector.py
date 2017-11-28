@@ -31,10 +31,13 @@ def init(name):
   Path_cil,Name_cil,\
   Nfile_cil,Ncil
 
-def read_cilindros(Path, Name, Nfile, Ncil, mask):
+def read_cilindros(Path, Name, Nfile, Ncil, mask, norm_x=False, norm_y=False):
 
   Total = 0
   k, flag, data, rper, leng, MNod = [], [], [], [], [], []
+
+  if(norm_x==True): print "x normed"
+  if(norm_y==True): print "y normed" 
 
   for ifile in range(Nfile):
 
@@ -46,6 +49,7 @@ def read_cilindros(Path, Name, Nfile, Ncil, mask):
     print "Num",N
 
     for _ in range(N):
+
       idfil = np.fromfile(binario,dtype=np.int32,count=1)[0]
       fflag = np.fromfile(binario,dtype=np.int32,count=1)[0]
       longitud = np.fromfile(binario,dtype=np.float32,count=1)[0]
@@ -65,7 +69,8 @@ def read_cilindros(Path, Name, Nfile, Ncil, mask):
 
       if(mask[idfil]==False): continue
 
-      #dist /= longitud
+      if(norm_x==True): dist /= longitud
+      if(norm_y==True): rr   /= longitud*0.5
 
       flag.append(fflag)
       leng.append(dist)

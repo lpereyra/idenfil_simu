@@ -24,12 +24,17 @@ def draw_out(binslog, binsper, GD_pho, \
   fig.subplots_adjust(hspace=0.3)
   
   plt.subplot(1, 1, 1)
-  
-  cset  = plt.contour(binslog,binsper,GD_pho,Nlevel,colors='k')
-  cset = plt.contourf(binslog,binsper,GD_pho,Nlevel,cmap=cm.coolwarm)
+  if(LOG == True):
+    min_max = [np.log10(0.01), np.log10(5000)]
+  else:
+    min_max = [0.00, 5000]
+
+  Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
+
+  cset =  plt.contour(binslog,binsper,GD_pho,levels=Niveles,colors='k',vmin=min_max[0],vmax=min_max[1])
+  cset = plt.contourf(binslog,binsper,GD_pho,levels=Niveles,cmap=cm.coolwarm,vmin=min_max[0],vmax=min_max[1])
   cbar = plt.colorbar(cset)
   plt.title('DELTA\n %s' % title)
-  
 
   #################################################################
   ###################### MEDIAS ###################################
@@ -37,32 +42,40 @@ def draw_out(binslog, binsper, GD_pho, \
   fig.subplots_adjust(hspace=0.3)
   
   plt.subplot(2, 2, 1)
-  
-  cset  = plt.contour(binslog,binsper,GD_mean_velper,Nlevel, colors='k')
-  cset = plt.contourf(binslog,binsper,GD_mean_velper,Nlevel, cmap=cm.coolwarm)
+  min_max = [-400, 50]
+  Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
+ 
+  cset =  plt.contour(binslog,binsper,GD_mean_velper,levels=Niveles,colors='k')
+  cset = plt.contourf(binslog,binsper,GD_mean_velper,levels=Niveles,cmap=cm.coolwarm)
   cbar = plt.colorbar(cset)
   plt.title('MEDIA PERPENDICULAR\n %s' % title)
   
   plt.subplot(2, 2, 3)
-  
-  cset  = plt.contour(binslog,binsper,GD_mean_velpar,Nlevel, colors='k')
-  cset = plt.contourf(binslog,binsper,GD_mean_velpar,Nlevel, cmap=cm.coolwarm)
+  min_max = [-200, 300]
+  Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
+
+  cset =  plt.contour(binslog,binsper,GD_mean_velpar,levels=Niveles,colors='k')
+  cset = plt.contourf(binslog,binsper,GD_mean_velpar,levels=Niveles,cmap=cm.coolwarm)
   cbar = plt.colorbar(cset); plt.clim(-150.,200)
   plt.title('MEDIA PARALELA\n %s' % title)
 
   #################################################################
   ######################  STD  ####################################
   plt.subplot(2, 2, 2)
-  
-  cset  = plt.contour(binslog,binsper,GD_std_velper,Nlevel, colors='k')
-  cset = plt.contourf(binslog,binsper,GD_std_velper,Nlevel, cmap=cm.coolwarm)
+  min_max = [0, 500]
+  Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
+ 
+  cset =  plt.contour(binslog,binsper,GD_std_velper,levels=Niveles,colors='k')
+  cset = plt.contourf(binslog,binsper,GD_std_velper,levels=Niveles,cmap=cm.coolwarm)
   cbar = plt.colorbar(cset)
   plt.title('STD PERPENDICULAR\n %s' % title)
   
   plt.subplot(2, 2, 4)
+  min_max = [0, 500]
+  Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
   
-  cset  = plt.contour(binslog,binsper,GD_std_velpar,Nlevel, colors='k')
-  cset = plt.contourf(binslog,binsper,GD_std_velpar,Nlevel, cmap=cm.coolwarm)
+  cset =  plt.contour(binslog,binsper,GD_std_velpar,levels=Niveles,colors='k')
+  cset = plt.contourf(binslog,binsper,GD_std_velpar,levels=Niveles,cmap=cm.coolwarm)
   cbar = plt.colorbar(cset)
   plt.title('STD PARALELA\n %s' % title)
   #################################################################
