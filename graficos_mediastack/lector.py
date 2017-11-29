@@ -56,13 +56,12 @@ def read_cilindros(Path, Name, Nfile, Ncil, mask, norm_x=False, norm_y=False):
       M0 = np.fromfile(binario,dtype=np.float32,count=1)[0]
       M1 = np.fromfile(binario,dtype=np.float32,count=1)[0]
       lenbins = np.fromfile(binario,dtype=np.int32,count=1)[0]
-
+      
       dist = []
       for j in range(lenbins):
         dist.append(np.fromfile(binario,dtype=np.float32,count=1))
 
-      rr   = [None]*Ncil
-      sub  = [None]*Ncil
+      rr, sub = [None]*Ncil, [None]*Ncil
       for j in range(Ncil):
         rr[j]  = np.fromfile(binario,dtype=np.float32,count=1)[0]        
         sub[j] = np.fromfile(binario,dtype=ciltype,count=lenbins)
@@ -71,12 +70,13 @@ def read_cilindros(Path, Name, Nfile, Ncil, mask, norm_x=False, norm_y=False):
 
       if(norm_x==True): dist /= longitud
       if(norm_y==True): rr   /= longitud*0.5
+      q = M0/M1
 
       flag.append(fflag)
       leng.append(dist)
       rper.append(rr)
       data.append(sub)    
-      MNod.append(np.array([M0,M1]))
+      MNod.append(q)
 
       for j in range(Ncil):
         if(np.any(sub[j]["npart"]==0)):

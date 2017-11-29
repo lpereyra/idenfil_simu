@@ -17,7 +17,8 @@ def draw_out(binslog, binsper, GD_pho, \
   GD_mean_velper = np.mean(GD_mean_velper,axis=0)
   GD_std_velpar  = np.mean(GD_std_velpar,axis=0)
   GD_std_velper  = np.mean(GD_std_velper,axis=0)
-  
+ 
+
   #################################################################
   ###############  DELTA  #########################################
   fig = plt.figure()
@@ -31,8 +32,8 @@ def draw_out(binslog, binsper, GD_pho, \
 
   Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
 
-  cset =  plt.contour(binslog,binsper,GD_pho,levels=Niveles,colors='k',vmin=min_max[0],vmax=min_max[1])
-  cset = plt.contourf(binslog,binsper,GD_pho,levels=Niveles,cmap=cm.coolwarm,vmin=min_max[0],vmax=min_max[1])
+  cset =  plt.contour(binslog,binsper,GD_pho,levels=Niveles,colors='k')
+  cset = plt.contourf(binslog,binsper,GD_pho,levels=Niveles,cmap=cm.coolwarm)
   cbar = plt.colorbar(cset)
   plt.title('DELTA\n %s' % title)
 
@@ -78,7 +79,40 @@ def draw_out(binslog, binsper, GD_pho, \
   cset = plt.contourf(binslog,binsper,GD_std_velpar,levels=Niveles,cmap=cm.coolwarm)
   cbar = plt.colorbar(cset)
   plt.title('STD PARALELA\n %s' % title)
+
+
   #################################################################
+  ######################  TANGENTE ################################
+
+  fig = plt.figure()
+  fig.subplots_adjust(hspace=0.3)
+  
+  plt.subplot(1, 1, 1)
+  min_max = [-180.,0.0]
+  Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
+  factor         = 180./np.pi
+  GD_Tan         = factor*np.arctan2(GD_mean_velper,GD_mean_velpar)
+  cset =  plt.contour(binslog,binsper,GD_Tan,levels=Niveles,colors='k')
+  cset = plt.contourf(binslog,binsper,GD_Tan,levels=Niveles,cmap=cm.coolwarm)
+  cbar = plt.colorbar(cset)
+  plt.title('TANGENTE\n %s' % title)
+
+  
+  X = binslog
+  Y = binsper
+  R = np.sqrt(GD_mean_velper**2.0+GD_mean_velpar**2.0)
+  U = GD_mean_velpar/R
+  V = GD_mean_velper/R
+
+
+  q = plt.quiver(X, Y, U, V)
+
+  plt.quiverkey(q, X=0.3, Y=1.1, U=0.1, label='Angulo', labelpos='E')
+
+
+  plt.show()
+
+#################################################################
 
   plt.show()
 
