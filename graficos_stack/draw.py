@@ -1,10 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
+from matplotlib.backends.backend_pdf import PdfPages
+
 
 def draw_out(binslog, binsper, GD_pho, \
     GD_mean_velpar, GD_mean_velper, \
     GD_std_velpar,  GD_std_velper, \
+    lista_pho, lista_vel, \
     title='',LOG=True, Nlevel=20):
 
   if(LOG == True):
@@ -17,104 +20,85 @@ def draw_out(binslog, binsper, GD_pho, \
   GD_mean_velper = np.mean(GD_mean_velper,axis=0)
   GD_std_velpar  = np.mean(GD_std_velpar,axis=0)
   GD_std_velper  = np.mean(GD_std_velper,axis=0)
- 
 
   #################################################################
   ###############  DELTA  #########################################
-  fig = plt.figure()
-  fig.subplots_adjust(hspace=0.3)
-  
-  plt.subplot(1, 1, 1)
+  fig = plt.figure(figsize=(9, 7)) 
+  fig.suptitle(title.replace('\n','  '),x=0.47)
+
+  ax = plt.subplot(1, 1, 1)
   if(LOG == True):
     min_max = [np.log10(0.01), np.log10(5000)]
   else:
     min_max = [0.00, 5000]
-
   Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
 
-  cset =  plt.contour(binslog,binsper,GD_pho,levels=Niveles,colors='k')
-  cset = plt.contourf(binslog,binsper,GD_pho,levels=Niveles,cmap=cm.coolwarm)
+  X = binslog
+  Y = binsper
+  U = GD_mean_velpar
+  V = GD_mean_velper 
+
+  cset = ax.contour(binslog,binsper,GD_pho,levels=Niveles,colors='k')
+  cset = ax.contourf(binslog,binsper,GD_pho,levels=Niveles,cmap=cm.coolwarm)
+  plt.quiver(X, Y, U, V, units='xy', pivot='mid')
   cbar = plt.colorbar(cset)
-  plt.title('DELTA\n %s' % title)
+  ax.set_title('DELTA')
+
+  #pdf.savefig(fig)
+  lista_pho.append(fig)
+  plt.close(fig)
 
   #################################################################
   ###################### MEDIAS ###################################
-  fig = plt.figure()
-  fig.subplots_adjust(hspace=0.3)
+  fig = plt.figure(figsize=(11,8))
+  fig.suptitle(title.replace('\n','  '),x=0.47)
+  fig.subplots_adjust(wspace=0.5,hspace=0.3)
   
-  plt.subplot(2, 2, 1)
+  ax = plt.subplot(2, 2, 1)
   min_max = [-400, 50]
   Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
  
-  cset =  plt.contour(binslog,binsper,GD_mean_velper,levels=Niveles,colors='k')
-  cset = plt.contourf(binslog,binsper,GD_mean_velper,levels=Niveles,cmap=cm.coolwarm)
+  cset =  ax.contour(binslog,binsper,GD_mean_velper,levels=Niveles,colors='k')
+  cset = ax.contourf(binslog,binsper,GD_mean_velper,levels=Niveles,cmap=cm.coolwarm)
   cbar = plt.colorbar(cset)
-  plt.title('MEDIA PERPENDICULAR\n %s' % title)
+  ax.set_title('MEDIA PERPENDICULAR')
   
-  plt.subplot(2, 2, 3)
+  ax = plt.subplot(2, 2, 3)
   min_max = [-200, 300]
   Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
 
-  cset =  plt.contour(binslog,binsper,GD_mean_velpar,levels=Niveles,colors='k')
-  cset = plt.contourf(binslog,binsper,GD_mean_velpar,levels=Niveles,cmap=cm.coolwarm)
-  cbar = plt.colorbar(cset); plt.clim(-150.,200)
-  plt.title('MEDIA PARALELA\n %s' % title)
+  cset =  ax.contour(binslog,binsper,GD_mean_velpar,levels=Niveles,colors='k')
+  cset = ax.contourf(binslog,binsper,GD_mean_velpar,levels=Niveles,cmap=cm.coolwarm)
+  cbar = plt.colorbar(cset)
+  ax.set_title('MEDIA PARALELA')
 
   #################################################################
   ######################  STD  ####################################
-  plt.subplot(2, 2, 2)
+  ax = plt.subplot(2, 2, 2)
   min_max = [0, 500]
   Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
  
-  cset =  plt.contour(binslog,binsper,GD_std_velper,levels=Niveles,colors='k')
-  cset = plt.contourf(binslog,binsper,GD_std_velper,levels=Niveles,cmap=cm.coolwarm)
+  cset =  ax.contour(binslog,binsper,GD_std_velper,levels=Niveles,colors='k')
+  cset = ax.contourf(binslog,binsper,GD_std_velper,levels=Niveles,cmap=cm.coolwarm)
   cbar = plt.colorbar(cset)
-  plt.title('STD PERPENDICULAR\n %s' % title)
+  ax.set_title('STD PERPENDICULAR')
   
-  plt.subplot(2, 2, 4)
+  ax = plt.subplot(2, 2, 4)
   min_max = [0, 500]
   Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
   
-  cset =  plt.contour(binslog,binsper,GD_std_velpar,levels=Niveles,colors='k')
-  cset = plt.contourf(binslog,binsper,GD_std_velpar,levels=Niveles,cmap=cm.coolwarm)
+  cset =  ax.contour(binslog,binsper,GD_std_velpar,levels=Niveles,colors='k')
+  cset = ax.contourf(binslog,binsper,GD_std_velpar,levels=Niveles,cmap=cm.coolwarm)
   cbar = plt.colorbar(cset)
-  plt.title('STD PARALELA\n %s' % title)
+  ax.set_title('STD PARALELA')
 
+  #pdf.savefig(fig)
+  lista_vel.append(fig)
+  plt.close(fig)
 
   #################################################################
-  ######################  TANGENTE ################################
-
-  fig = plt.figure()
-  fig.subplots_adjust(hspace=0.3)
   
-  plt.subplot(1, 1, 1)
-  min_max = [-180.,0.0]
-  Niveles = np.linspace(min_max[0],min_max[1],Nlevel)
-  factor         = 180./np.pi
-  GD_Tan         = factor*np.arctan2(GD_mean_velper,GD_mean_velpar)
-  cset =  plt.contour(binslog,binsper,GD_Tan,levels=Niveles,colors='k')
-  cset = plt.contourf(binslog,binsper,GD_Tan,levels=Niveles,cmap=cm.coolwarm)
-  cbar = plt.colorbar(cset)
-  plt.title('TANGENTE\n %s' % title)
-
-  
-  X = binslog
-  Y = binsper
-  R = np.sqrt(GD_mean_velper**2.0+GD_mean_velpar**2.0)
-  U = GD_mean_velpar/R
-  V = GD_mean_velper/R
-
-
-  q = plt.quiver(X, Y, U, V)
-
-  plt.quiverkey(q, X=0.3, Y=1.1, U=0.1, label='Angulo', labelpos='E')
-
-
-  plt.show()
-
-#################################################################
-
-  plt.show()
+  return lista_pho, lista_vel
 
 #################################################################
 def draw_hist(data_x,num_bins=50,log=False):

@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 ciltype = np.dtype([
         ("npart", np.int32),
@@ -34,19 +35,20 @@ def init(name):
 def read_cilindros(Path, Name, Nfile, Ncil, mask, norm_x=False, norm_y=False):
 
   Total = 0
-  k, flag, data, rper, leng, MNod = [], [], [], [], [], []
+  k, flag, data, rper, leng, MNod, lll = [], [], [], [], [], [], []
 
-  if(norm_x==True): print "x normed"
-  if(norm_y==True): print "y normed" 
+  #if(norm_x==True): print "x normed"
+  #if(norm_y==True): print "y normed" 
 
   for ifile in range(Nfile):
 
     filename = "%s%s.%.2d.bin" % (Path,Name,ifile)
-    print filename
     binario = open(filename,"rb")
     N = np.fromfile(binario,dtype=np.int32, count=1)[0]
     Total+=N
-    print "Num",N
+
+    #print filename
+    #print "Num",N
 
     for _ in range(N):
 
@@ -70,13 +72,15 @@ def read_cilindros(Path, Name, Nfile, Ncil, mask, norm_x=False, norm_y=False):
 
       if(norm_x==True): dist /= longitud
       if(norm_y==True): rr   /= longitud*0.5
-      q = M0/M1
+
+      q = [M0, M1]
 
       flag.append(fflag)
       leng.append(dist)
       rper.append(rr)
       data.append(sub)    
       MNod.append(q)
+      lll.append(longitud)
 
       for j in range(Ncil):
         if(np.any(sub[j]["npart"]==0)):
@@ -88,12 +92,13 @@ def read_cilindros(Path, Name, Nfile, Ncil, mask, norm_x=False, norm_y=False):
   rper = np.asarray(rper)
   data = np.asarray(data)
   MNod = np.asarray(MNod)
+  lll  = np.asarray(lll)
 
-  print "Total  ",Total
-  print "Quedan ",len(data)
-  print "Caidos ",len(k)
+  #print "Total  ",Total
+  #print "Quedan ",len(data)
+  #print "Caidos ",len(k)
 
-  return leng,flag,rper,data,MNod
+  return leng,flag,rper,data,MNod,lll
 
 
 #################################################################
