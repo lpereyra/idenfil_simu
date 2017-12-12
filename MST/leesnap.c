@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <omp.h>
 #include <assert.h>
 #include "variables.h"
 #include "cosmoparam.h"
@@ -252,9 +253,16 @@ void select_particles_fof(type_real prefix)
   int  i,j,k,id,idv,len;
   type_int *index;
   FILE *pfin;
-  
-  index = (type_int *) calloc((cp.npart+1),sizeof(type_int)); // por si los id arrancan en 1
 
+  #ifdef NTHREADS
+  omp_set_dynamic(0);
+  omp_set_num_threads(NTHREADS);
+  #endif
+
+  index = (type_int *) malloc((cp.npart+1)*sizeof(type_int)); // por si los id arrancan en 1
+
+  #pragma omp parallel for num_threads(NTHREADS) \
+  schedule(static) default(none) private(i) shared(P,index,cp)
   for(i=0;i<cp.npart;i++)
   {
     index[P[i].id] = i;

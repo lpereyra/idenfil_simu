@@ -8,8 +8,8 @@ ciltype = np.dtype([
         ("vrms",   np.float32),
         ("vmean_par",  np.float32),
         ("vrms_par",   np.float32),
-        ("vmean_perp",  np.float32),
-        ("vrms_perp",   np.float32),
+        ("vmean_per",  np.float32),
+        ("vrms_per",   np.float32),
                   ])
 
 def init(name):
@@ -27,18 +27,23 @@ def init(name):
   Name_cil  = contenido[3]
   Nfile_cil = np.int32(contenido[4])
   Ncil      = np.int32(contenido[5])
- 
-  return Path_prop,Name_prop,\
-  Path_cil,Name_cil,\
-  Nfile_cil,Ncil
+  Path_par  = contenido[6]
+  Name_par  = contenido[7]
+  Nfile_par = np.int32(contenido[8])
 
-def read_cilindros(Path, Name, Nfile, Ncil, mask, norm_x=False, norm_y=False):
+  return Path_prop,Name_prop, \
+  Path_cil,Name_cil,          \
+  Nfile_cil,Ncil,             \
+  Path_par,Name_par,Nfile_par
+
+
+def read_cilindros(Path, Name, Nfile, Ncil, norm_x=False, norm_y=False):
 
   Total = 0
   k, flag, data, rper, leng, MNod, lll = [], [], [], [], [], [], []
 
-  #if(norm_x==True): print "x normed"
-  #if(norm_y==True): print "y normed" 
+  if(norm_x==True): print "x normed"
+  if(norm_y==True): print "y normed" 
 
   for ifile in range(Nfile):
 
@@ -47,8 +52,7 @@ def read_cilindros(Path, Name, Nfile, Ncil, mask, norm_x=False, norm_y=False):
     N = np.fromfile(binario,dtype=np.int32, count=1)[0]
     Total+=N
 
-    #print filename
-    #print "Num",N
+    print "Num",N
 
     for _ in range(N):
 
@@ -68,18 +72,14 @@ def read_cilindros(Path, Name, Nfile, Ncil, mask, norm_x=False, norm_y=False):
         rr[j]  = np.fromfile(binario,dtype=np.float32,count=1)[0]        
         sub[j] = np.fromfile(binario,dtype=ciltype,count=lenbins)
 
-      if(mask[idfil]==False): continue
-
       if(norm_x==True): dist /= longitud
       if(norm_y==True): rr   /= longitud*0.5
-
-      q = [M0, M1]
 
       flag.append(fflag)
       leng.append(dist)
       rper.append(rr)
       data.append(sub)    
-      MNod.append(q)
+      MNod.append([M0, M1])
       lll.append(longitud)
 
       for j in range(Ncil):

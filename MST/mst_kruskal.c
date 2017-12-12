@@ -207,26 +207,14 @@ void Kruskal(int *Padre, int *Rank, std::vector<std::pair<type_real,std::pair<in
 std::vector<std::vector<int> > &adjacency_list)
 {
   int j,k,id,idv;
-  #ifdef DEBUG
-  int id_debug;
-  #endif
 
   sort(edges.begin(),edges.end(), std::greater<std::pair<float,std::pair<int,int> > >());
-
-  #ifdef DEBUG
-  j = edges.back().second.first;
-  id_debug = Gr[j].Save;
-  #endif
 
   while(!edges.empty()) 
   {
     j = edges.back().second.first;
     k = edges.back().second.second;
     edges.pop_back();
-
-    #ifdef DEBUG
-    if(Gr[j].Save!=id_debug) continue;
-    #endif
 
     id = Root(j,Padre);
     idv = Root(k,Padre);

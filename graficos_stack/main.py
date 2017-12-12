@@ -2,142 +2,248 @@ import numpy as np
 import lector as lee
 import draw as graf
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
 import sys
 
 if __name__ == '__main__':
 
   Path_prop, Name_prop, \
-  Path_cil, Name_cil, \
-  Nfile_cil, Ncil \
+  Path_cil, Name_cil, Nfile_cil, Ncil,  \
+  Path_par, Name_par, Nfile_par \
   = lee.init(sys.argv[1])
 
   POSFACTOR = 1000.  
   print 'Numero de cilindros ',Ncil
 
   Prop = lee.read_prop(Path_prop,Name_prop,POSFACTOR)
-  
+
   mask_prop = (Prop["flag"]>=2)
   print "Mask Segmentos",sum(mask_prop)
   #mask_prop = (Prop["size"]>2)*mask_prop
   #print "Segmentos mask N>2",len(Prop["size"][mask_prop])
 
-  #plt.ion()
-  #ax = graf.draw_scatter(Prop["len"][mask_prop],Prop["elong"][mask_prop],x_log=True)
-  #ax[0].set_title("Hexagon binning")
-  #ax[0].set_ylabel('elong')
-  #ax[0].set_xlabel('len')
-  #ax[1].set_title("Log color scale")
-  #ax[1].set_xlabel('len')
+  Scatter = False
+  if(Scatter==True):
 
-  #ax = graf.draw_scatter(Prop["len"][mask_prop],Prop["razon"][mask_prop],x_log=True)
-  #ax[0].set_title("Hexagon binning")
-  #ax[0].set_ylabel('razon')
-  #ax[0].set_xlabel('len')
-  #ax[1].set_title("Log color scale")
-  #ax[1].set_xlabel('len')
- 
-  #ax = graf.draw_hist(Prop["razon"][mask_prop],num_bins=100)
-  #ax.set_xlabel('razon')
+    graf.draw_scatter(Prop["len"][mask_prop],Prop["elong"][mask_prop],'len','elong',x_log=True)
+    graf.draw_scatter(Prop["len"][mask_prop],Prop["razon"][mask_prop],'len','razon',x_log=True)
 
-  ##############################
-  ########## LONGITUD ##########
+  Hist    = False
+  if(Hist==True):
+    graf.draw_hist(Prop["razon"][mask_prop],'razon',num_bins=100)
+
+  del Prop
+
+  ####### BINES LONGITUD #######
   print 'Ingresar Media'
   mean = [float(x) for x in raw_input().split(',')]
   mean.sort()
 
-  ##############################################################
-  mask  = mask_prop*(Prop["len"]>mean[0]-1.0)*(Prop["len"]<mean[-1]+1.0)
-  leng, flag, rper, data, MNod, longitud = \
-  lee.read_cilindros(Path_cil, Name_cil, Nfile_cil, Ncil, \
-  mask, norm_x=True, norm_y=True)
-  longitud /= POSFACTOR
-  ##############################################################
-
   num_bins = 5
-  percent, lista_pho, lista_vel = [], [], []
+  ##############################
 
-  for m in mean:
+  ##############################################################
+  print 'Guardar Segmentos?'
+  select = raw_input()
+  
+  if('s' in select or 'S' in select or 'y' in select or 'Y' in select):
+
+    leng, flag, rper, data, MNod, longitud = \
+    lee.read_cilindros(Path_cil,Name_cil,Nfile_cil,Ncil,norm_x=True,norm_y=True)
+
+    longitud /= POSFACTOR
+    mask     = (longitud>mean[0]-1.0)*(longitud<mean[-1]+1.0)*(flag==2)
+    leng     = leng[mask]
+    flag     = flag[mask]
+    rper     = rper[mask]
+    data     = data[mask] 
+    MNod     = MNod[mask]
+    longitud = longitud[mask]
+
+    data["pho"] += 1.0 ### PARA USAR DELTA+1.0
+
+    min_max_pho    = [np.inf, -np.inf]
+    min_max_velpar = [np.inf, -np.inf]
+    min_max_velper = [np.inf, -np.inf]
+    min_max_rmspar = [np.inf, -np.inf]
+    min_max_rmsper = [np.inf, -np.inf]
+
+    for m in mean:
  
-    mask_len = (longitud>m-1.0)*(longitud<m+1.0)
-    Qq = MNod[mask_len][:,0]/MNod[mask_len][:,1]
+      mask_len = (longitud>m-1.0)*(longitud<m+1.0)
 
-    wall = np.linspace(0.0,100.0,num_bins+1)
-    q = np.percentile(Qq,wall)
-    q[0] -= 1e-6; q[-1] += 1e-6
+      data_mask = np.mean(data["pho"][mask_len],axis=0)
+      min_max_pho[0] = min_max_pho[0] if np.min(data_mask)>min_max_pho[0] else np.min(data_mask)
+      min_max_pho[1] = min_max_pho[1] if np.max(data_mask)<min_max_pho[1] else np.max(data_mask)
 
-    print '----------------------'
-    print m,len(Qq)
-    print '----------------------'
+      data_mask = np.mean(data["vmean_par"][mask_len],axis=0)
+      min_max_velpar[0] = min_max_velpar[0] if np.min(data_mask)>min_max_velpar[0] else np.min(data_mask)
+      min_max_velpar[1] = min_max_velpar[1] if np.max(data_mask)<min_max_velpar[1] else np.max(data_mask)
+
+      data_mask = np.mean(data["vmean_per"][mask_len],axis=0)
+      min_max_velper[0] = min_max_velper[0] if np.min(data_mask)>min_max_velper[0] else np.min(data_mask)
+      min_max_velper[1] = min_max_velper[1] if np.max(data_mask)<min_max_velper[1] else np.max(data_mask)
+
+      data_mask = np.mean(data["vrms_par"][mask_len],axis=0)
+      min_max_rmspar[0] = min_max_rmspar[0] if np.min(data_mask)>min_max_rmspar[0] else np.min(data_mask)
+      min_max_rmspar[1] = min_max_rmspar[1] if np.max(data_mask)<min_max_rmspar[1] else np.max(data_mask)
+
+      data_mask = np.mean(data["vrms_per"][mask_len],axis=0)
+      min_max_rmsper[0] = min_max_rmsper[0] if np.min(data_mask)>min_max_rmsper[0] else np.min(data_mask)
+      min_max_rmsper[1] = min_max_rmsper[1] if np.max(data_mask)<min_max_rmsper[1] else np.max(data_mask)
+
+    #min_max_pho    = [0.0,   5000.]
+    min_max_velper = [-300.0,   0.]
+    min_max_velpar = [-250.0, 250.]
+    min_max_rmsper = [0.0, 500.]
+    min_max_rmspar = [0.0, 500.]
+    #  min_max_rmsper[1] = min_max_rmsper[1] if np.max(data_mask)<min_max_rmsper[1] else np.max(data_mask)
+
+
+    #print min_max_pho 
+    #print min_max_velpar
+    #print min_max_velper
+    #print min_max_rmspar
+    #print min_max_rmsper
+
+    del flag
+    del mask
+    ##############################################################
+
+    ##############################################################
+    lista_pho, lista_vel = [], []
+
+    for m in mean:
  
-    for i in xrange(num_bins):  
+      mask_len = (longitud>m-1.0)*(longitud<m+1.0)
+      Qq = MNod[mask_len][:,0]/MNod[mask_len][:,1]
 
-      q_mask = ((Qq>q[i])*(Qq<=q[i+1]))
+      q = np.linspace(0.0,100.0,num_bins+1)
+      q = np.percentile(Qq,q); q[0] -= 1e-6; q[-1] += 1e-6
 
-      print '%d-quartil %f %f Num %d' % (i,q[i],q[i+1],len(data[mask_len]["pho"][q_mask]))
-      print 'Media Min ',np.mean(MNod[mask_len][q_mask][:,0]),' Media Max ',np.mean(MNod[mask_len][q_mask][:,1])
+      print '----------------------\n',m,len(Qq),'\n----------------------'
+ 
+      for i in xrange(num_bins):
 
-      #if(i!=num_bins-1 and i!=0): continue      
+        q_mask = ((Qq>q[i])*(Qq<=q[i+1]))
 
-      binslog = np.mean(leng[mask_len][q_mask],axis=0).ravel()
-      binsper = np.mean(rper[mask_len][q_mask],axis=0).ravel()  
+        print '%d-quartil %f %f Num %d' % (i,q[i],q[i+1],len(data[mask_len]["pho"][q_mask]))
+        print 'Media Min ',np.mean(MNod[mask_len][q_mask][:,0]),' Media Max ',np.mean(MNod[mask_len][q_mask][:,1])
 
-      name  = 'long > %.2f && long < %.2f\n' % (m-1.0, m+1.0)
-      name += 'q > %.2f && q <= %.2f' % (q[i], q[i+1])
+        binslog = np.mean(leng[mask_len][q_mask],axis=0).ravel()
+        binsper = np.mean(rper[mask_len][q_mask],axis=0).ravel()  
 
-      graf.draw_out(binslog, binsper, data[mask_len]["pho"][q_mask], \
-      data[mask_len]["vmean_par"][q_mask], data[mask_len]["vmean_perp"][q_mask], \
-      data[mask_len]["vrms_par"][q_mask],  data[mask_len]["vrms_perp"][q_mask], \
-      lista_pho, lista_vel, title=name,LOG=True, Nlevel=25)
+        name  = 'long > %.2f && long < %.2f\n' % (m-1.0, m+1.0)
+        name += 'SEG\n'
+        name += 'q > %.2f && q <= %.2f' % (q[i], q[i+1])
 
-      percent.append(i+1)
+        graf.draw_out(binslog, binsper, \
+        data[mask_len]["pho"][q_mask],           min_max_pho, \
+        data[mask_len]["vmean_par"][q_mask],  min_max_velpar, \
+        data[mask_len]["vmean_per"][q_mask], min_max_velper, \
+        data[mask_len]["vrms_par"][q_mask],   min_max_rmspar, \
+        data[mask_len]["vrms_per"][q_mask],  min_max_rmsper, \
+        lista_pho, lista_vel, title=name,LOG=True, Nlevel=25)
 
-    leng     = leng[~mask_len]
-    flag     = flag[~mask_len]
-    rper     = rper[~mask_len]
-    data     = data[~mask_len] 
-    MNod     = MNod[~mask_len]
-    longitud = longitud[~mask_len]
+        del q_mask
 
-  percent   = np.unique(np.asarray(percent))
-  bdim      = len(percent)
-  m         = len(mean)
+      leng     = leng[~mask_len]
+      rper     = rper[~mask_len]
+      data     = data[~mask_len] 
+      MNod     = MNod[~mask_len]
+      longitud = longitud[~mask_len]
+      
+      del mask_len,Qq
 
-  lista_pho = np.asarray(lista_pho).reshape(m,bdim, order='C')
-  lista_vel = np.asarray(lista_vel).reshape(m,bdim, order='C')
+    del leng,rper,data,MNod,longitud
 
-  Transpose=True
+    percent = np.arange(num_bins)+1
+    graf.save_pdf(lista_pho,lista_vel,'seg_q',num_bins,mean,percent)
+    graf.save_pdf(lista_pho,lista_vel,'seg_long',num_bins,mean,percent)
 
-  if(Transpose==True):
+    del lista_pho,lista_vel
+    ##############################################################
 
-    for i in range(bdim):
+  print 'Guardar Pares?'
+  select = raw_input()
+  
+  if('s' in select or 'S' in select or 'y' in select or 'Y' in select):
 
-      pdf_pho = PdfPages('%.2d_%.2d_%.2d_pho_seg_q.pdf' % (m,percent[i],num_bins))
-      pdf_vel = PdfPages('%.2d_%.2d_%.2d_vel_seg_q.pdf' % (m,percent[i],num_bins))
+    ###############################################################################################################################
+    #
+    # GUARDO LOS PARES
+    #
+    ###############################################################################################################################
+    
+    ##############################################################
+    leng, flag, rper, data, MNod, longitud = \
+    lee.read_cilindros(Path_par,Name_par,Nfile_par,Ncil,norm_x=True,norm_y=True)
 
-      for j in range(m):
+    longitud /= POSFACTOR
+    mask     = (longitud>mean[0]-1.0)*(longitud<mean[-1]+1.0)*(flag==2)
+    leng     = leng[mask]
+    flag     = flag[mask]
+    rper     = rper[mask]
+    data     = data[mask] 
+    MNod     = MNod[mask]
+    longitud = longitud[mask]
 
-        pdf_pho.savefig(lista_pho[j,i])
-        pdf_vel.savefig(lista_vel[j,i])
-        plt.close(lista_pho[j,i])
-        plt.close(lista_vel[j,i])
+    data["pho"] += 1.0 ### PARA USAR DELTA+1.0
 
-      pdf_pho.close()
-      pdf_vel.close()
+    del flag
+    del mask
+    ##############################################################
 
-  else:
+    ##############################################################
+    lista_pho, lista_vel = [], []
 
-    for i in range(m):
+    for m in mean:
+ 
+      mask_len = (longitud>m-1.0)*(longitud<m+1.0)
+      Qq = MNod[mask_len][:,0]/MNod[mask_len][:,1]
 
-      pdf_pho = PdfPages('%.2f_%.2d_%.2d_pho_seg_long.pdf' % (mean[i],m,num_bins))
-      pdf_vel = PdfPages('%.2f_%.2d_%.2d_vel_seg_long.pdf' % (mean[i],m,num_bins))
+      q = np.linspace(0.0,100.0,num_bins+1)
+      q = np.percentile(Qq,q); q[0] -= 1e-6; q[-1] += 1e-6
 
-      for j in range(bdim):
+      print '----------------------\n',m,len(Qq),'\n----------------------'
+ 
+      for i in xrange(num_bins):
 
-        pdf_pho.savefig(lista_pho[i,j])
-        pdf_vel.savefig(lista_vel[i,j])
-        plt.close(lista_pho[i,j])
-        plt.close(lista_vel[i,j])
+        q_mask = ((Qq>q[i])*(Qq<=q[i+1]))
 
-      pdf_pho.close()
-      pdf_vel.close()
+        print '%d-quartil %f %f Num %d' % (i,q[i],q[i+1],len(data[mask_len]["pho"][q_mask]))
+        print 'Media Min ',np.mean(MNod[mask_len][q_mask][:,0]),' Media Max ',np.mean(MNod[mask_len][q_mask][:,1])
+
+        binslog = np.mean(leng[mask_len][q_mask],axis=0).ravel()
+        binsper = np.mean(rper[mask_len][q_mask],axis=0).ravel()  
+
+        name  = 'long > %.2f && long < %.2f\n' % (m-1.0, m+1.0)
+        name += 'PAR\n'
+        name += 'q > %.2f && q <= %.2f' % (q[i], q[i+1])
+
+        graf.draw_out(binslog, binsper, \
+        data[mask_len]["pho"][q_mask],           min_max_pho, \
+        data[mask_len]["vmean_par"][q_mask],  min_max_velpar, \
+        data[mask_len]["vmean_per"][q_mask], min_max_velper, \
+        data[mask_len]["vrms_par"][q_mask],   min_max_rmspar, \
+        data[mask_len]["vrms_per"][q_mask],  min_max_rmsper, \
+        lista_pho, lista_vel, title=name,LOG=True, Nlevel=25)
+
+        del q_mask
+
+      leng     = leng[~mask_len]
+      rper     = rper[~mask_len]
+      data     = data[~mask_len] 
+      MNod     = MNod[~mask_len]
+      longitud = longitud[~mask_len]
+      
+      del mask_len,Qq
+
+    del leng,rper,data,MNod,longitud
+
+    percent = np.arange(num_bins)+1
+    graf.save_pdf(lista_pho,lista_vel,'pares_q',num_bins,mean,percent)
+    graf.save_pdf(lista_pho,lista_vel,'pares_long',num_bins,mean,percent)
+
+    del lista_pho,lista_vel
+    ##############################################################
+

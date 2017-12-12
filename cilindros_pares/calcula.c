@@ -141,7 +141,7 @@ void propiedades(int NNN, type_real *fof)
     rcil2  = (type_real *) malloc(binsper*sizeof(type_real));
     l = 0;
 
-    rsep    = Seg[i].len/(type_real)nbins;      
+    rsep    = Seg[i].len/(type_real)(nbins-1);
     rlong   = 2.0*rsep; 
     rlong_2 = rlong*0.5;
 
@@ -156,8 +156,13 @@ void propiedades(int NNN, type_real *fof)
 
     racum = 0.0;
 
+    calc_media(Gr[Seg[i].list[0]].Pos,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);             
+    l++;
+
     for(k=1;k<Seg[i].size;k++)
     {
+
+      if(l==nbins-1) break;
 
       r = 0.0;
       for(idim=0;idim<3;idim++)
@@ -177,16 +182,10 @@ void propiedades(int NNN, type_real *fof)
         Pos_cent[idim] = Gr[Seg[i].list[k-1]].Pos[idim];
       }
 
-      if(k==1)
-      {
-        rbin = 0.5*rsep;
-      }else{
-        rbin = rsep-racum;
-      }
+      rbin = rsep-racum;
 
       if(r<rbin)
       {
-        if(k==1) r += rbin;
         racum += r;
         continue;
       }
@@ -219,6 +218,7 @@ void propiedades(int NNN, type_real *fof)
 
       for(bin=0;bin<lbin;bin++)
       {
+        if(l==nbins-1) break;
         for(idim=0;idim<3;idim++)
         {
           Pos_cent[idim] += rsep*vdir[idim];  
@@ -233,6 +233,9 @@ void propiedades(int NNN, type_real *fof)
 
       racum = r-(type_real)lbin*rsep;
     }
+
+    calc_media(Gr[Seg[i].list[Seg[i].size-1]].Pos,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);             
+    l++;
 
     assert(l==nbins);
 
@@ -303,9 +306,9 @@ void propiedades(int NNN, type_real *fof)
     rcil2  = (type_real *) malloc(binsper*sizeof(type_real));
     volinv = (type_real *) malloc(binsper*sizeof(type_real));
 
-    rsep = Seg[i].len/(type_real)nbins;      
-    rlong = 2.0*rsep; 
-    rlong_2= rlong*0.5;
+    rsep    = Seg[i].len/(type_real)(nbins-1);
+    rlong   = 2.0*rsep; 
+    rlong_2 = rlong*0.5;
 
     r = 0.5*Seg[i].len;
 
@@ -352,9 +355,28 @@ void propiedades(int NNN, type_real *fof)
     lenrbin = 0.0;
     l = 0;
 
+    #ifdef SAVEPART
+    calc_part(Gr[Seg[i].list[0]].Pos,i,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
+    #else
+    calc_part(Gr[Seg[i].list[0]].Pos,i,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+    #endif
+
+    nodo[l] = lenrbin; 
+
+    for(j=0;j<ncil;j++)
+    {
+      dens = (type_real)vsize[j]*volinv[j];
+      push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
+      vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
+    }
+
+    l++; // sumo
+
     for(k=1;k<Seg[i].size;k++)
     {
       
+      if(l==nbins-1) break;
+
       r = 0.0;
       for(idim=0;idim<3;idim++)
       {
@@ -374,18 +396,11 @@ void propiedades(int NNN, type_real *fof)
         Pos_cent[idim] = Gr[Seg[i].list[k-1]].Pos[idim];
       }
 
-      if(k==1)
-      {
-        rbin = 0.5*rsep;
-      }else{
-        rbin = rsep-racum;
-      }
+      rbin = rsep-racum;
 
       if(r<rbin)
       {
-        if(k==1) r += rbin;
         racum += r;
-
         continue;
       }
     
@@ -404,13 +419,7 @@ void propiedades(int NNN, type_real *fof)
       calc_part(Pos_cent,i,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
       #endif
 
-      if(l==0)
-      {       
-        lenrbin += 0.5*rsep;
-      }else{
-        lenrbin += rsep;
-      }
-
+      lenrbin += rsep;
       nodo[l] = lenrbin; 
 
       for(j=0;j<ncil;j++)
@@ -438,6 +447,7 @@ void propiedades(int NNN, type_real *fof)
 
       for(bin=0;bin<lbin;bin++)
       {
+        if(l==nbins-1) break;
 
         for(idim=0;idim<3;idim++)
         {
@@ -465,12 +475,29 @@ void propiedades(int NNN, type_real *fof)
         }
 
         l++; // sumo
-
       }
 
       racum = r-(type_real)lbin*rsep;
     }
+  
+    #ifdef SAVEPART
+    calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,i,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
+    #else
+    calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,i,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+    #endif
 
+    lenrbin += rsep;
+    nodo[l] = lenrbin; 
+
+    for(j=0;j<ncil;j++)
+    {
+      dens = (type_real)vsize[j]*volinv[j];
+      push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
+      vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
+    }
+
+    l++; // sumo
+ 
     assert(l==nbins);
 
     fwrite(&i,sizeof(int),1,pfdens[Tid]);                   // Num Filamento
@@ -482,7 +509,7 @@ void propiedades(int NNN, type_real *fof)
     r = Gr[Seg[i].list[Seg[i].size-1]].NumPart*cp.Mpart;
     fwrite(&r,sizeof(type_real),1,pfdens[Tid]);             // escribe la masa del ultimo nodo
 
-    fwrite(&nbins,sizeof(int),1,pfdens[Tid]);               // la cantidad de pelotas que hizo
+    fwrite(&nbins,sizeof(int),1,pfdens[Tid]);               // la cantidad de cilindros que hizo
 
     for(j=0;j<nbins;j++)
     {
