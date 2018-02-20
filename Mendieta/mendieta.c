@@ -76,22 +76,26 @@ void Write_Groups(double fof)
   int i,j,k,id,npar,gn,save_sub;
   type_real dx,dy,dz,xc,yc,zc;
   char filename[200];
-  FILE *pfout, *pfcentros, *pfcentros_ascii;
+  FILE *pfout, *pfcentros;
+  #ifdef FILE_ASCII
+    FILE *pfcentros_ascii;
+  #endif
+
+  i = iden.ngrupos-1; // LE RESTO UNO POR EL GRUPO 0
 
   ///////////////////////////////////////////////////////
   sprintf(filename,"%.2d_%.2f_fof.bin",snap.num,fof);
   pfout=fopen(filename,"w");
-  i = iden.ngrupos-1;
   fwrite(&i,sizeof(int),1,pfout);
   //////////////////////////////////////////////////////
-  if(iden.step!=0)
-  {
-    sprintf(filename,"%.2d_%.2f_centros.bin",snap.num,fof);
-    pfcentros=fopen(filename,"w");
-    fwrite(&i,sizeof(int),1,pfcentros);
+  sprintf(filename,"%.2d_%.2f_centros.bin",snap.num,fof);
+  pfcentros=fopen(filename,"w");
+  fwrite(&i,sizeof(int),1,pfcentros);
+  //////////////////////////////////////////////////////
+  #ifdef FILE_ASCII
     sprintf(filename,"%.2d_%.2f_centros.dat",snap.num,fof);
     pfcentros_ascii=fopen(filename,"w");
-  }
+  #endif  
   //////////////////////////////////////////////////////
 
   npar = gn = 0;
@@ -101,38 +105,38 @@ void Write_Groups(double fof)
 
     j = 0;
     id = k = Temp.head[i];
-    if(iden.step!=0)
-    {
-      xc = yc = zc = 0.0;
+    xc = yc = zc = 0.0;    
+
+    if(iden.step==0)
+      save_sub = i;
+    else
       save_sub = P[k].sub;
-      fwrite(&save_sub,sizeof(int),1,pfout);
-    }
+
+    fwrite(&save_sub,sizeof(int),1,pfout);
     fwrite(&i,sizeof(int),1,pfout);
     fwrite(&Temp.npgrup[i],sizeof(int),1,pfout);
 
     while(k != -1)
     {
-      if(iden.step!=0)
-      {
-        // cuidado con el orden {pos[i]-centro} en este caso
-        dx = P[k].Pos[0] - P[id].Pos[0];
-        dy = P[k].Pos[1] - P[id].Pos[1];
-        dz = P[k].Pos[2] - P[id].Pos[2];
 
-        #ifdef PERIODIC
-        dx = dx > cp.lbox*0.5 ? dx-cp.lbox : dx;
-        dy = dy > cp.lbox*0.5 ? dy-cp.lbox : dy;
-        dz = dz > cp.lbox*0.5 ? dz-cp.lbox : dz;
+      // cuidado con el orden {pos[i]-centro} en este caso
+      dx = P[k].Pos[0] - P[id].Pos[0];
+      dy = P[k].Pos[1] - P[id].Pos[1];
+      dz = P[k].Pos[2] - P[id].Pos[2];
+
+      #ifdef PERIODIC
+      dx = dx > cp.lbox*0.5 ? dx-cp.lbox : dx;
+      dy = dy > cp.lbox*0.5 ? dy-cp.lbox : dy;
+      dz = dz > cp.lbox*0.5 ? dz-cp.lbox : dz;
   
-        dx = dx < -cp.lbox*0.5 ? dx+cp.lbox : dx;
-        dy = dy < -cp.lbox*0.5 ? dy+cp.lbox : dy;
-        dz = dz < -cp.lbox*0.5 ? dz+cp.lbox : dz;
-        #endif
+      dx = dx < -cp.lbox*0.5 ? dx+cp.lbox : dx;
+      dy = dy < -cp.lbox*0.5 ? dy+cp.lbox : dy;
+      dz = dz < -cp.lbox*0.5 ? dz+cp.lbox : dz;
+      #endif
 
-        xc += dx;
-        yc += dy;
-        zc += dz;
-      }
+      xc += dx;
+      yc += dy;
+      zc += dz;      
 
       P[k].sub = P[k].gr;
       fwrite(&P[k].id,sizeof(int),1,pfout);
@@ -144,34 +148,34 @@ void Write_Groups(double fof)
     assert(j == Temp.npgrup[i]);
     #endif
 
-    if(iden.step!=0)
-    {
-      xc /= (type_real)Temp.npgrup[i];
-      yc /= (type_real)Temp.npgrup[i];
-      zc /= (type_real)Temp.npgrup[i];
+    xc /= (type_real)Temp.npgrup[i];
+    yc /= (type_real)Temp.npgrup[i];
+    zc /= (type_real)Temp.npgrup[i];
 
-      xc += P[id].Pos[0];
-      yc += P[id].Pos[1];
-      zc += P[id].Pos[2];
+    xc += P[id].Pos[0];
+    yc += P[id].Pos[1];
+    zc += P[id].Pos[2];
 
-      xc += pmin[0];
-      yc += pmin[1];
-      zc += pmin[2];
-           
-      #ifdef PERIODIC
-      xc = xc<0 ? cp.lbox+(float)fmod(xc,cp.lbox) : (float)fmod(xc,cp.lbox);
-      yc = yc<0 ? cp.lbox+(float)fmod(yc,cp.lbox) : (float)fmod(yc,cp.lbox);
-      zc = zc<0 ? cp.lbox+(float)fmod(zc,cp.lbox) : (float)fmod(zc,cp.lbox);
-      #endif
+    xc += pmin[0];
+    yc += pmin[1];
+    zc += pmin[2];
+         
+    #ifdef PERIODIC
+    xc = xc<0 ? cp.lbox+(float)fmod(xc,cp.lbox) : (float)fmod(xc,cp.lbox);
+    yc = yc<0 ? cp.lbox+(float)fmod(yc,cp.lbox) : (float)fmod(yc,cp.lbox);
+    zc = zc<0 ? cp.lbox+(float)fmod(zc,cp.lbox) : (float)fmod(zc,cp.lbox);
+    #endif
 
-      fwrite(&save_sub,sizeof(int),1,pfcentros);
-      fwrite(&i,sizeof(int),1,pfcentros);
-      fwrite(&xc,sizeof(float),1,pfcentros);
-      fwrite(&yc,sizeof(float),1,pfcentros);
-      fwrite(&zc,sizeof(float),1,pfcentros);
-      fwrite(&Temp.npgrup[i],sizeof(int),1,pfcentros);
+    fwrite(&save_sub,sizeof(int),1,pfcentros);
+    fwrite(&i,sizeof(int),1,pfcentros);
+    fwrite(&xc,sizeof(float),1,pfcentros);
+    fwrite(&yc,sizeof(float),1,pfcentros);
+    fwrite(&zc,sizeof(float),1,pfcentros);
+    fwrite(&Temp.npgrup[i],sizeof(int),1,pfcentros);
+
+    #ifdef FILE_ASCII
       fprintf(pfcentros_ascii,"%d %d %f %f %f %d\n",save_sub,i,xc,yc,zc,Temp.npgrup[i]);
-    }  
+    #endif
 
     npar+=j;
     gn++;
@@ -179,12 +183,10 @@ void Write_Groups(double fof)
 
   assert(gn == (iden.ngrupos-1));
   fclose(pfout);
-
-  if(iden.step!=0)
-  {
-    fclose(pfcentros);
+  fclose(pfcentros);
+  #ifdef FILE_ASCII
     fclose(pfcentros_ascii);
-  }
+  #endif
 
   fprintf(stdout,"num de grupos %d num de particulas en grupos %d\n",gn,npar);
   fflush(stdout);

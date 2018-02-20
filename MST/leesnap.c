@@ -281,7 +281,11 @@ void select_particles_fof(type_real prefix)
   j = 0;
   for(i=0;i<len;i++)
   {   
-    fread(&id,sizeof(int),1,pfin);
+    fread(&k,sizeof(int),1,pfin);
+    fread(&id,sizeof(int),1,pfin); 
+
+    assert(id==k); // debe coincidir
+
     fread(&k,sizeof(int),1,pfin);
 
     j+=k;

@@ -3,7 +3,6 @@
 
 void leeheader(char *nombrefile);
 void lee(char *filename, struct particle_data *Q, int *ind);
-void change_positions(int n);
 void re_change_positions(int n, struct particle_data *Q);
 void read_gadget();
 
