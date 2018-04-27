@@ -104,7 +104,7 @@ void crea_random(int NpartCut)
 
       dis    = sqrt(Posprima[0]*Posprima[0]+Posprima[1]*Posprima[1]+Posprima[2]*Posprima[2]);
 
-      if(dis<3000 || dis>15000) continue;
+      if(dis<len_min || dis>len_max) continue;
 
       b_mass = cp.Mpart*Gr[j].NumPart;
 
@@ -121,7 +121,7 @@ void crea_random(int NpartCut)
   fwrite(&c,sizeof(int),1,pfpares);
   fclose(pfpares);
 
-  fprintf(stdout,"Pares %d\n",c); 
+  fprintf(stdout,"Pares %d in MIN_MAX %f %f Mpc\n",c,len_min/1000.,len_max/1000.);
   assert(Npares==0);
 
   return;
@@ -188,7 +188,7 @@ void reorder_grups(int *Id)
 	      idsource = Id[i];
     	  dest = Id[i];
 
-	      do
+	      while(1)
 	      {
 	         Grsave = Gr[dest];
 	         idsave = Id[dest];
@@ -203,7 +203,7 @@ void reorder_grups(int *Id)
 
 	         dest = idsource;
 
-        }while(1);
+        }
 
 	    }
    }

@@ -8,6 +8,8 @@ EXTRAS += -DSTORE_VELOCITIES
 EXTRAS += -DSTORE_IDS
 EXTRAS += -DCALCULA_MEDIA
 EXTRAS += -DHUECOS
+EXTRAS += -DEXTEND
+#EXTRAS += -DBIN_LOG
 #EXTRAS += -DSAVEPART
 #EXTRAS += -DMCRITIC
 
@@ -23,7 +25,7 @@ LIBS   := -lm
 
 MAKEFILE := Makefile
 
-OBJS := leesnap.o grid.o variables.o calcula.o
+OBJS := leesnap.o grid.o variables.o calcula.o list.o
 
 HEADERS := $(patsubst %.o,$.h,$(OBJS))
 

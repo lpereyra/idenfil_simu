@@ -36,65 +36,137 @@ def init(name):
   Nfile_cil,Ncil,             \
   Path_par,Name_par,Nfile_par
 
+def some_read(pack):
 
-def read_cilindros(Path, Name, Nfile, Ncil, norm_x=False, norm_y=False):
+  filename = pack[0]
+  Ncil     = pack[1]
+  extend   = pack[2]
+
+  aux_k, aux_flag, aux_data, aux_rper, aux_leng, aux_MNod, aux_lll \
+  = [], [], [], [], [], [], []
+
+  binario = open(filename,"rb")
+  N = np.fromfile(binario,dtype=np.int32, count=1)[0]
+
+  if extend == True:
+  
+    ext_filename = filename.replace("densidad","extend")
+    ext_binario = open(ext_filename,"rb")
+    ext_n = np.fromfile(ext_binario,dtype=np.int32, count=1)[0]
+    assert(N==ext_n)
+
+  print "Num",N
+
+  for _ in range(N):
+
+    idfil = np.fromfile(binario,dtype=np.int32,count=1)[0]
+
+    fflag = np.fromfile(binario,dtype=np.int32,count=1)[0]
+    longitud = np.fromfile(binario,dtype=np.float32,count=1)[0]
+    M0 = np.fromfile(binario,dtype=np.float32,count=1)[0]
+    M1 = np.fromfile(binario,dtype=np.float32,count=1)[0]
+    lenbins = np.fromfile(binario,dtype=np.int32,count=1)[0]
+
+    dist = np.fromfile(binario,dtype=np.float32,count=lenbins)
+
+    rr, sub = [None]*Ncil, [None]*Ncil
+    for j in range(Ncil):
+      rr[j] = np.fromfile(binario,dtype=np.float32,count=1)[0]
+      sub[j] = np.fromfile(binario,dtype=ciltype,count=lenbins)
+
+    ###########################################################################
+    if extend == True:
+      ext_idfil = np.fromfile(ext_binario,dtype=np.int32,count=1)[0]
+      assert(idfil==ext_idfil)
+      ext_longitud = np.fromfile(ext_binario,dtype=np.float32,count=1)[0]
+      assert(longitud==ext_longitud)
+      ext_lenbins = np.fromfile(ext_binario,dtype=np.int32,count=1)[0]
+      assert(ext_lenbins%2==0)
+      ext_lenbins = ext_lenbins/2
+
+      ########## INICIO #########
+      ext_dist = np.fromfile(ext_binario,dtype=np.float32,count=ext_lenbins)
+      
+      ext_rr, ext_sub = [None]*Ncil, [None]*Ncil
+      for j in range(Ncil):
+        ext_rr[j]  = np.fromfile(ext_binario,dtype=np.float32,count=1)[0]
+        ext_sub[j] = np.fromfile(ext_binario,dtype=ciltype,count=ext_lenbins)
+
+      dist = np.concatenate((ext_dist[:-1],dist))
+      rr   = np.mean((ext_rr,rr),axis=0)
+      for j in range(Ncil):
+        #if(j==0): print ext_sub[j][-1],sub[j][0]
+        sub[j] = np.concatenate((ext_sub[j][:-1],sub[j]),axis=0)
+      ###########################
+
+      ########### FINAL #########
+      ext_dist = np.fromfile(ext_binario,dtype=np.float32,count=ext_lenbins)
+      
+      ext_rr, ext_sub = [None]*Ncil, [None]*Ncil
+      for j in range(Ncil):
+        ext_rr[j]  = np.fromfile(ext_binario,dtype=np.float32,count=1)[0]
+        ext_sub[j] = np.fromfile(ext_binario,dtype=ciltype,count=ext_lenbins)
+
+      dist = np.concatenate((dist,ext_dist[1:]))
+      rr   = np.mean((rr,ext_rr),axis=0)
+      for j in range(Ncil):
+        #if(j==0): print sub[j][-1],ext_sub[j][0]
+        sub[j] = np.concatenate((sub[j],ext_sub[j][1:]),axis=0)
+      ###########################
+      
+    aux_flag.append(fflag)
+    aux_leng.append(dist)
+    aux_rper.append(rr)
+    aux_data.append(sub)    
+    aux_MNod.append([M0, M1])
+    aux_lll.append(longitud)
+
+    for j in range(Ncil):
+      if(np.any(sub[j]["npart"]==0)):
+        aux_k.append(idfil)
+        break
+
+  return [N, np.asarray(aux_leng), np.asarray(aux_flag), np.asarray(aux_rper), \
+  np.asarray(aux_data), np.asarray(aux_MNod), np.asarray(aux_lll), np.asarray(aux_k)]
+
+
+def read_cilindros(Path, Name, Nfile, Ncil, extend=False):
+
+  from multiprocessing import Pool
 
   Total = 0
-  k, flag, data, rper, leng, MNod, lll = [], [], [], [], [], [], []
 
-  if(norm_x==True): print "x normed"
-  if(norm_y==True): print "y normed" 
-
+  args = []
   for ifile in range(Nfile):
-
     filename = "%s%s.%.2d.bin" % (Path,Name,ifile)
-    binario = open(filename,"rb")
-    N = np.fromfile(binario,dtype=np.int32, count=1)[0]
-    Total+=N
+    args.append([filename, Ncil, extend])
 
-    print "Num",N
+  pool = Pool()
+  result = pool.map(some_read, args)
+  pool.close() 
 
-    for _ in range(N):
+  flag, data, rper, leng, MNod, lll \
+  = [], [], [], [], [], []
 
-      idfil = np.fromfile(binario,dtype=np.int32,count=1)[0]
-      fflag = np.fromfile(binario,dtype=np.int32,count=1)[0]
-      longitud = np.fromfile(binario,dtype=np.float32,count=1)[0]
-      M0 = np.fromfile(binario,dtype=np.float32,count=1)[0]
-      M1 = np.fromfile(binario,dtype=np.float32,count=1)[0]
-      lenbins = np.fromfile(binario,dtype=np.int32,count=1)[0]
-      
-      dist = []
-      for j in range(lenbins):
-        dist.append(np.fromfile(binario,dtype=np.float32,count=1))
+  while result:
+    Total += result[-1][0]
+    leng.append(result[-1][1])
+    flag.append(result[-1][2])
+    rper.append(result[-1][3])
+    data.append(result[-1][4])
+    MNod.append(result[-1][5])
+    lll .append(result[-1][6])
+    #k.append(result[-1][7])
+    result.pop()
 
-      rr, sub = [None]*Ncil, [None]*Ncil
-      for j in range(Ncil):
-        rr[j]  = np.fromfile(binario,dtype=np.float32,count=1)[0]        
-        sub[j] = np.fromfile(binario,dtype=ciltype,count=lenbins)
+  leng = np.concatenate(leng)
+  flag = np.concatenate(flag)
+  rper = np.concatenate(rper)
+  data = np.concatenate(data)
+  MNod = np.concatenate(MNod)
+  lll  = np.concatenate(lll)
 
-      if(norm_x==True): dist /= longitud
-      if(norm_y==True): rr   /= longitud*0.5
-
-      flag.append(fflag)
-      leng.append(dist)
-      rper.append(rr)
-      data.append(sub)    
-      MNod.append([M0, M1])
-      lll.append(longitud)
-
-      for j in range(Ncil):
-        if(np.any(sub[j]["npart"]==0)):
-          k.append(idfil)
-          break
-
-  leng = np.asarray(leng)
-  flag = np.asarray(flag)
-  rper = np.asarray(rper)
-  data = np.asarray(data)
-  MNod = np.asarray(MNod)
-  lll  = np.asarray(lll)
-
-  #print "Total  ",Total
+  print "Total  ",Total
   #print "Quedan ",len(data)
   #print "Caidos ",len(k)
 

@@ -126,15 +126,20 @@ void init_variables(int argc, char **argv){
   }
   sprintf(message,"Num bins:               %d\n",nbins);BLUE(message);
   sprintf(message,"Num cylindres:          %d\n",ncil);BLUE(message);
+  #ifdef EXTEND
+    RED("EXTEND\n");
+  #endif
+  #ifdef BIN_LOG
+    RED("BIN LOG\n");
+  #else
+    RED("BIN LIN\n");
+  #endif
 
   #ifdef MCRITIC
   sprintf(message,"M_CRIT [10^10 Msol / h]  %f\n",m_critica);RED(message);
   #endif
 
   BLUE("********** Makefile Options ***********\n");
-  #ifdef DEBUG
-  BLUE("  DEBUG\n");
-  #endif
   #ifdef PERIODIC
   BLUE("  PERIODIC\n");
   #endif

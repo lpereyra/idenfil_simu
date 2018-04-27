@@ -197,7 +197,6 @@ void read_segment(int NNN, type_real *fof)
   for(i=0;i<cp.nseg;i++)
   {
     fread(&Seg[i].size,sizeof(int),1,pf);
-
     Seg[i].list = (int *) malloc(Seg[i].size*sizeof(int));
 
     for(k=0;k<Seg[i].size;k++)

@@ -18,30 +18,25 @@
 void propiedades(int NNN, type_real *fof)
 {
   char filename[200];
-  int i, j, k, l, idim, Tid, *c;
+  int i, j, l, idim, Tid, *c;
   int totfil = 0;
   int binsper = ncil + 1;
-  int bin,lbin;
   type_real *rcil2;                 // En Kpc                    
-  type_real *volinv;                // En Kpc
   type_real rsep;                   // En Kpc
   type_real rlong;                  // En Kpc
   type_real rlong_2;                // En Kpc
   type_real RMAX, RMIN, LMAX;
-  type_real vdir[3];
-  type_real Pos_cent[3];
-  type_real mod_v[3];
-  type_real r,rbin,racum;
-  type_real dens,lenrbin;
+  type_real r;
   FILE **pfdens;
   #ifdef CALCULA_MEDIA
-  int   *npart;
   FILE **pfvel;
   #endif
   #ifdef SAVEPART
   FILE **pfpart;
   #endif
-
+  #ifdef EXTEND
+  FILE **pfextend;
+  #endif
   #ifdef MPC 
   type_real POSFACTOR = 1000.;
   #endif
@@ -90,7 +85,10 @@ void propiedades(int NNN, type_real *fof)
   #ifdef SAVEPART
     pfpart = (FILE **) malloc(NTHREADS*sizeof(FILE));
   #endif
-
+  #ifdef EXTEND
+    pfextend  = (FILE **) malloc(NTHREADS*sizeof(FILE));
+  #endif
+ 
   for(i=0;i<NTHREADS;i++)
   {
     c[i] = 0;
@@ -124,135 +122,57 @@ void propiedades(int NNN, type_real *fof)
        fwrite(&c[i],sizeof(int),1,pfpart[i]);    
     #endif
 
+    #ifdef EXTEND
+      #ifdef MCRITIC
+      sprintf(filename,"%.2d_%.4d_extend_cut_%.2f_%.2f_%.2f.%.2d.bin",snap.num,NNN,m_critica,fof[0],fof[1],i);
+      #else
+      sprintf(filename,"%.2d_%.4d_extend_%.2f_%.2f.%.2d.bin",snap.num,NNN,fof[0],fof[1],i);
+      #endif
+      pfextend[i]=fopen(filename,"w");
+      fwrite(&c[i],sizeof(int),1,pfextend[i]);        
+    #endif
+
   }
 
   #ifdef CALCULA_MEDIA
 
   BLUE("**** CALCULA VEL MEDIAS ******\n");
   #pragma omp parallel for num_threads(NTHREADS) \
-  schedule(dynamic) default(none) private(i,idim,k,l,Tid,      \
-  rcil2,vdir,Pos_cent,mod_v,r,rbin,racum,bin,lbin,npart,rsep,  \
-  rlong,rlong_2) shared(Gr,Seg,cp,ncil,binsper,c,pfvel,RMAX,RMIN,nbins)
+  schedule(dynamic) default(none) private(i,Tid, \
+  rcil2,r,rsep,rlong,rlong_2) \
+  shared(Gr,Seg,cp,ncil,binsper,c,pfvel,RMAX,RMIN,nbins)
   for(i=0;i<cp.nseg;i++)
   {
     Tid = omp_get_thread_num();
-    npart = (int *) calloc(ncil,sizeof(int));
     Seg[i].Vmedia = (type_real *) calloc(3*ncil,sizeof(type_real));
     rcil2  = (type_real *) malloc(binsper*sizeof(type_real));
-    l = 0;
 
     rsep    = Seg[i].len/(type_real)(nbins-1);
     rlong   = 2.0*rsep; 
     rlong_2 = rlong*0.5;
 
-    r = 0.5*Seg[i].len;
+    r = Seg[i].len;
 
     if(r>RMAX)
     {
+    #ifdef BIN_LOG
       logspace(rcil2,RMAX,RMIN,binsper);
+    #else
+      linspace(rcil2,RMAX,0.0,binsper);
+    #endif
     }else{
+    #ifdef BIN_LOG
       logspace(rcil2,r,r/50.,binsper);
+    #else
+      linspace(rcil2,r,0.0,binsper);
+    #endif
     }
 
-    racum = 0.0;
-
-    calc_media(Gr[Seg[i].list[0]].Pos,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);             
-    l++;
-
-    for(k=1;k<Seg[i].size;k++)
-    {
-
-      if(l==nbins-1) break;
-
-      r = 0.0;
-      for(idim=0;idim<3;idim++)
-      {
-        vdir[idim] = Gr[Seg[i].list[k]].Pos[idim]-Gr[Seg[i].list[k-1]].Pos[idim];    
-        #ifdef PERIODIC
-        if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
-        if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
-        #endif
-        r += vdir[idim]*vdir[idim];
-      }
-      r = sqrt(r);
-
-      for(idim=0;idim<3;idim++)
-      {
-        vdir[idim] /= r;
-        Pos_cent[idim] = Gr[Seg[i].list[k-1]].Pos[idim];
-      }
-
-      rbin = rsep-racum;
-
-      if(r<rbin)
-      {
-        racum += r;
-        continue;
-      }
-
-      for(idim=0;idim<3;idim++)
-      {
-        Pos_cent[idim] += rbin*vdir[idim];  
-        #ifdef PERIODIC
-        Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
-        Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
-        #endif
-      }
-
-      calc_media(Pos_cent,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);             
-      l++;
-
-      r = 0.0;
-      for(idim=0;idim<3;idim++)
-      {
-        mod_v[idim] = Gr[Seg[i].list[k]].Pos[idim]-Pos_cent[idim];
-        #ifdef PERIODIC
-        mod_v[idim] = mod_v[idim] >= 0.5*cp.lbox ? mod_v[idim]-cp.lbox : mod_v[idim];
-        mod_v[idim] = mod_v[idim] < -0.5*cp.lbox ? mod_v[idim]+cp.lbox : mod_v[idim];
-        #endif
-        r += mod_v[idim]*mod_v[idim];
-      }
-      r = sqrt(r);
-
-      lbin = (type_int)(r/rsep);
-
-      for(bin=0;bin<lbin;bin++)
-      {
-        if(l==nbins-1) break;
-
-        for(idim=0;idim<3;idim++)
-        {
-          Pos_cent[idim] += rsep*vdir[idim];  
-          #ifdef PERIODIC
-          Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
-          Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
-          #endif
-        }
-        calc_media(Pos_cent,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);             
-        l++;
-      }
-
-      racum = r-(type_real)lbin*rsep;
-    }
-
-    calc_media(Gr[Seg[i].list[Seg[i].size-1]].Pos,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);             
-    l++;
-
-    assert(l==nbins);
-
-    for(bin=0;bin<ncil;bin++)
-    {
-      if(npart[bin]==0)
-        continue;
-
-      for(idim=0;idim<3;idim++)
-        Seg[i].Vmedia[bin+ncil*idim] /= (type_real)npart[bin];
-    }
+    cylinder_mean(i,rsep,rlong,rlong_2,rcil2);
 
     fwrite(&i,sizeof(int),1,pfvel[Tid]);
     fwrite(&Seg[i].Vmedia[0],sizeof(type_real),3*ncil,pfvel[Tid]);
     c[Tid]++;    
-    free(npart);
     free(rcil2);
   } //FINALIZA EL PARALELO
   BLUE("******************************\n");
@@ -265,73 +185,82 @@ void propiedades(int NNN, type_real *fof)
     fclose(pfvel[i]);
     c[i] = 0;
   }
+
   #endif
 
   BLUE("********** CALCULA ***********\n"); 
   #ifdef SAVEPART
+  
+    #ifdef EXTEND 
 
-    #pragma omp parallel for num_threads(NTHREADS) \
-    schedule(dynamic) default(none) private(i,j,k,l,idim,rcil2,Tid, \
-    bin,lbin,volinv,vdir,Pos_cent,mod_v,r,rbin,lenrbin, \
-    racum,dens,rsep,rlong,rlong_2) shared(pfdens,pfpart,Gr,P,Seg,cp, \
-    RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+      #pragma omp parallel for num_threads(NTHREADS) \
+      schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+      r,rsep,rlong,rlong_2) shared(pfextend,pfdens,pfpart,Gr,P,Seg,cp, \
+      RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+
+    #else
+
+      #pragma omp parallel for num_threads(NTHREADS) \
+      schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+      r,rsep,rlong,rlong_2) shared(pfdens,pfpart,Gr,P,Seg,cp, \
+      RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+
+    #endif
 
   #else
+  
+    #ifdef EXTEND
 
-    #pragma omp parallel for num_threads(NTHREADS) \
-    schedule(dynamic) default(none) private(i,j,k,l,idim,rcil2,Tid, \
-    bin,lbin,volinv,vdir,Pos_cent,mod_v,r,rbin,lenrbin, \
-    racum,dens,rsep,rlong,rlong_2) shared(pfdens,Gr,P,Seg,cp, \
-    RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+      #pragma omp parallel for num_threads(NTHREADS) \
+      schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+      r,rsep,rlong,rlong_2) shared(pfextend,pfdens,Gr,P,Seg,cp, \
+      RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+
+    #else
+
+      #pragma omp parallel for num_threads(NTHREADS) \
+      schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+      r,rsep,rlong,rlong_2) shared(pfdens,Gr,P,Seg,cp, \
+      RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+
+    #endif
 
   #endif
-
   for(i=0;i<cp.nseg;i++)
   {
-    int        vsize[binsper];
     type_real  aux_mean, aux_rms;
-    type_real **vmean, **vquad;
+    type_real *nodo;
     type_real *vmean_par, *vquad_par;
     type_real *vmean_perp, *vquad_perp;
-    type_real *nodo;
+    type_real **vmean, **vquad;
     struct node_sph **root;
-    #ifdef HUECOS
-    type_real tmpvol;
-    #endif
     #ifdef SAVEPART
-    int   size_part = 0;
-    int   *vpart;
+    int size_part = 0;
+    int *vpart;
     vpart = (int *) calloc(cp.npart/32+1,sizeof(int));
     #endif
 
     rcil2  = (type_real *) malloc(binsper*sizeof(type_real));
-    volinv = (type_real *) malloc(binsper*sizeof(type_real));
 
     rsep    = Seg[i].len/(type_real)(nbins-1);
     rlong   = 2.0*rsep; 
     rlong_2 = rlong*0.5;
 
-    r = 0.5*Seg[i].len;
+    r = Seg[i].len;
 
     if(r>RMAX)
     {
-      //logspace(rcil2,RMAX,RMIN,binsper);
-      logspace(rcil2,RMAX,RMIN,binsper);
+      #ifdef BIN_LOG
+        logspace(rcil2,RMAX,RMIN,binsper);
+      #else
+        linspace(rcil2,RMAX,0.0,binsper);
+      #endif
     }else{
-      logspace(rcil2,r,r/50.,binsper);
-    }
-
-    for(k=binsper-1;k>=0;k--)
-    {
-      #ifdef HUECOS
-        volinv[k] = M_PI*rlong*rcil2[k];
-
-        if(k!=binsper-1) 
-          volinv[k] -= tmpvol;        
-
-        tmpvol = M_PI*rlong*rcil2[k];
-      #endif  
-        volinv[k] = ((cp.lbox*cp.lbox*cp.lbox)/volinv[k])/(type_real)cp.npart;
+      #ifdef BIN_LOG
+        logspace(rcil2,r,r/50.,binsper);
+      #else
+        linspace(rcil2,r,0.0,binsper);
+      #endif
     }
 
     Tid = omp_get_thread_num();
@@ -352,155 +281,16 @@ void propiedades(int NNN, type_real *fof)
       vquad[j] = (type_real *) malloc(3*sizeof(type_real));
     }
 
-    racum   = 0.0;
-    lenrbin = 0.0;
-    l = 0;
-
     #ifdef SAVEPART
-    calc_part(Gr[Seg[i].list[0]].Pos,i,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
-    #else
-    calc_part(Gr[Seg[i].list[0]].Pos,i,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
-    #endif
-
-    nodo[l] = lenrbin; 
-
-    for(j=0;j<ncil;j++)
-    {
-      dens = (type_real)vsize[j]*volinv[j];
-      push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
-      vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
-    }
-
-    l++; // sumo
-
-    for(k=1;k<Seg[i].size;k++)
-    {
-      
-      if(l==nbins-1) break;
-
-      r = 0.0;
-      for(idim=0;idim<3;idim++)
-      {
-        vdir[idim] = Gr[Seg[i].list[k]].Pos[idim]-Gr[Seg[i].list[k-1]].Pos[idim];    
-        #ifdef PERIODIC
-        if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
-        if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
-        #endif
-        r += vdir[idim]*vdir[idim];
-      }
-
-      r = sqrt(r);
-
-      for(idim=0;idim<3;idim++)
-      {
-        vdir[idim] /= r;
-        Pos_cent[idim] = Gr[Seg[i].list[k-1]].Pos[idim];
-      }
-
-      rbin = rsep-racum;
-
-      if(r<rbin)
-      {
-        racum += r;
-        continue;
-      }
-    
-      for(idim=0;idim<3;idim++)
-      {
-        Pos_cent[idim] += rbin*vdir[idim];
-        #ifdef PERIODIC
-        Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
-        Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
-        #endif
-      }
- 
-      #ifdef SAVEPART
-      calc_part(Pos_cent,i,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
-      #else
-      calc_part(Pos_cent,i,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
-      #endif
-
-      lenrbin += rsep;
-      nodo[l] = lenrbin; 
-
-      for(j=0;j<ncil;j++)
-      {
-        dens = (type_real)vsize[j]*volinv[j];
-        push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
-        vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
-      }
-
-      l++; // sumo
-
-      r = 0.0;
-      for(idim=0;idim<3;idim++)
-      {
-        mod_v[idim] = Gr[Seg[i].list[k]].Pos[idim]-Pos_cent[idim];
-        #ifdef PERIODIC
-        mod_v[idim] = mod_v[idim] >= 0.5*cp.lbox ? mod_v[idim]-cp.lbox : mod_v[idim];
-        mod_v[idim] = mod_v[idim] < -0.5*cp.lbox ? mod_v[idim]+cp.lbox : mod_v[idim];
-        #endif
-        r += mod_v[idim]*mod_v[idim];
-      }
-      r = sqrt(r);
-
-      lbin = (type_int)(r/rsep);
-
-      for(bin=0;bin<lbin;bin++)
-      {
-        if(l==nbins-1) break;
-
-        for(idim=0;idim<3;idim++)
-        {
-          Pos_cent[idim] += rsep*vdir[idim];
-          #ifdef PERIODIC
-          Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
-          Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
-          #endif
-        }
- 
-        #ifdef SAVEPART
-        calc_part(Pos_cent,i,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
-        #else
-        calc_part(Pos_cent,i,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
-        #endif
-
-        lenrbin += rsep;
-        nodo[l] = lenrbin; 
-
-        for(j=0;j<ncil;j++)
-        {
-          dens = (type_real)vsize[j]*volinv[j];
-          push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
-          vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
-        }
-
-        l++; // sumo
-      }
-
-      racum = r-(type_real)lbin*rsep;
-    }
-  
-    #ifdef SAVEPART
-    calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,i,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
-    #else
-    calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,i,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
-    #endif
-
-    lenrbin += rsep;
-    nodo[l] = lenrbin; 
-
-    for(j=0;j<ncil;j++)
-    {
-      dens = (type_real)vsize[j]*volinv[j];
-      push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
-      vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
-    }
-
-    l++; // sumo
-    
-
-    assert(l==nbins);
+      calcular_mean(i,binsper,rsep,rlong,rlong_2,rcil2,\
+      vmean,vquad,vmean_par,vquad_par,\
+      vmean_perp,vquad_perp,nodo,root,\
+      &size_part,vpart);
+    #else  
+      calcular_mean(i,binsper,rsep,rlong,rlong_2,rcil2,\
+      vmean,vquad,vmean_par,vquad_par,\
+      vmean_perp,vquad_perp,nodo,root);
+    #endif  
 
     fwrite(&i,sizeof(int),1,pfdens[Tid]);                   // Num Filamento
     fwrite(&Seg[i].flag,sizeof(int),1,pfdens[Tid]);         // escribe la bandera
@@ -535,7 +325,6 @@ void propiedades(int NNN, type_real *fof)
 
       for(l=0;l<nbins;l++)
       {
-
         root[j][l].b -= 1.0;
 
         fwrite(&root[j][l].a,sizeof(int),1,pfdens[Tid]);       // npart
@@ -543,18 +332,15 @@ void propiedades(int NNN, type_real *fof)
 
         ////////////////////////////////////////////////////////////////////////////////////
 
-        if(root[j][l].a!=0)
+        for(idim=0;idim<3;idim++)
         {
-          for(idim=0;idim<3;idim++)
-          {
-            root[j][l].c[idim] /= (type_real)root[j][l].a;
-            root[j][l].d[idim] /= (type_real)root[j][l].a;
-          }
-          root[j][l].e /= (type_real)root[j][l].a;
-          root[j][l].f /= (type_real)root[j][l].a;
-          root[j][l].g /= (type_real)root[j][l].a;
-          root[j][l].h /= (type_real)root[j][l].a;
+          root[j][l].c[idim] *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+          root[j][l].d[idim] *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
         }
+        root[j][l].e *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        root[j][l].f *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        root[j][l].g *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        root[j][l].h *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
 
         aux_mean = aux_rms = 0.0;
 
@@ -565,32 +351,22 @@ void propiedades(int NNN, type_real *fof)
         }
         
         aux_mean /= 3.0;        
-        if(root[j][l].a>10)
-          aux_rms  = sqrt(fabs(aux_rms))/3.0;
-        else
-          aux_rms  = 0.0;
+        aux_rms  = root[j][l].a>10 ? sqrt(fabs(aux_rms))/3.0 : 0.0;
 
         fwrite(&aux_mean,sizeof(type_real),1,pfdens[Tid]); // mean
         fwrite(&aux_rms,sizeof(type_real),1,pfdens[Tid]);  // rms
 
         aux_mean = root[j][l].e;
-        if(root[j][l].a>10)
-          aux_rms  = sqrt(fabs(root[j][l].f - root[j][l].e*root[j][l].e));
-        else
-          aux_rms  = 0.0;
+        aux_rms  = root[j][l].a>10 ? sqrt(fabs(root[j][l].f - root[j][l].e*root[j][l].e)) : 0.0;
 
         fwrite(&aux_mean,sizeof(type_real),1,pfdens[Tid]); // mean par
         fwrite(&aux_rms,sizeof(type_real),1,pfdens[Tid]);  // rms  par
 
         aux_mean = root[j][l].g;
-        if(root[j][l].a>10)
-          aux_rms  = sqrt(fabs(root[j][l].h - root[j][l].g*root[j][l].g));
-        else
-         aux_rms  = 0.0;
+        aux_rms  = root[j][l].a>10 ? sqrt(fabs(root[j][l].h - root[j][l].g*root[j][l].g)) : 0.0;
 
         fwrite(&aux_mean,sizeof(type_real),1,pfdens[Tid]); // mean perp        
         fwrite(&aux_rms,sizeof(type_real),1,pfdens[Tid]);  // rms  perp
-
       }
 
       free(vmean[j]);
@@ -606,7 +382,17 @@ void propiedades(int NNN, type_real *fof)
     free(vquad_par);
     free(vmean_perp);
     free(vquad_perp);
- 
+
+    #ifdef EXTEND
+
+      #ifdef SAVEPART
+        ext_mean(pfextend[Tid],i,binsper,rsep,rlong,rlong_2,rcil2,&size_part,vpart);
+      #else
+        ext_mean(pfextend[Tid],i,binsper,rsep,rlong,rlong_2,rcil2);
+      #endif
+
+    #endif
+
     #ifdef SAVEPART
     fwrite(&i,sizeof(int),1,pfpart[Tid]);
     fwrite(&size_part,sizeof(int),1,pfpart[Tid]);
@@ -623,7 +409,6 @@ void propiedades(int NNN, type_real *fof)
     c[Tid]++;
     totfil++;
     free(rcil2);
-    free(volinv);
 
   } //FINALIZA EL PARALELO
 
@@ -633,6 +418,12 @@ void propiedades(int NNN, type_real *fof)
     rewind(pfdens[i]);
     fwrite(&c[i],sizeof(int),1,pfdens[i]);
     fclose(pfdens[i]);
+
+    #ifdef EXTEND
+      rewind(pfextend[i]);
+      fwrite(&c[i],sizeof(int),1,pfextend[i]);
+      fclose(pfextend[i]);
+    #endif
 
     #ifdef SAVEPART
       rewind(pfpart[i]);
@@ -652,10 +443,10 @@ void propiedades(int NNN, type_real *fof)
 }
 
 #ifdef SAVEPART
-  void calc_part(type_real *Pos_cent, int icent, int *vec, int *ncont, int *npart, type_real **mean, type_real **quad, \
+  void calc_part(type_real * const Pos_cent, type_real * const Vmedia, int *vec, int *ncont, int *npart, type_real **mean, type_real **quad, \
   type_real *versor, type_real *mean_par, type_real *quad_par, type_real *mean_perp, type_real *quad_perp, type_real *rcil2, type_real rlong_2, int binsper)
 #else        
-  void calc_part(type_real *Pos_cent, int icent, int *npart, type_real **mean, type_real **quad, \
+  void calc_part(type_real * const Pos_cent, type_real * const Vmedia, int *npart, type_real **mean, type_real **quad, \
   type_real *versor, type_real *mean_par, type_real *quad_par, type_real *mean_perp, type_real *quad_perp, type_real *rcil2, type_real rlong_2, int binsper)
 #endif
 {
@@ -687,7 +478,6 @@ void propiedades(int NNN, type_real *fof)
     memset(mean[j],0.0,3*sizeof(type_real));
     memset(quad[j],0.0,3*sizeof(type_real));
   }
-
   ////////////////////////////////////////////////////
 
   ngrid = grid.ngrid;
@@ -759,15 +549,14 @@ void propiedades(int NNN, type_real *fof)
 
           dot = Posprima[0]*versor[0]+Posprima[1]*versor[1]+Posprima[2]*versor[2];
 
-          //if(point_inside(dot,rlong_2)==1)
-          if(point_inside(dot,rlong_2) & 1)
+          if(point_inside(dot,rlong_2)==1)
           {
 
             dis = Posprima[0]*Posprima[0]+Posprima[1]*Posprima[1]+Posprima[2]*Posprima[2] - dot*dot;
 
             #ifdef HUECOS
-            if(dis<rcil2[0] && dis>rcil2[binsper])
-            //if(dis<rcil2[0])
+            //if(dis<rcil2[0] && dis>rcil2[binsper])
+            if(dis<rcil2[0])
             {
 
               bin = 0;
@@ -775,8 +564,6 @@ void propiedades(int NNN, type_real *fof)
               {
                 if(dis<rcil2[j])
                  bin = j;
-                else
-                  break;
               }          
               
               #ifdef SAVEPART
@@ -790,7 +577,7 @@ void propiedades(int NNN, type_real *fof)
               aux_mod = aux_dot = 0.0;
               for(k=0;k<3;k++)
               {
-                Vprima[k] = P[i].Vel[k] - Seg[icent].Vmedia[bin+binsper*k];
+                Vprima[k] = P[i].Vel[k] - Vmedia[3*bin+k];
 
                 mean[bin][k] += Vprima[k];
                 quad[bin][k] += (Vprima[k]*Vprima[k]);
@@ -846,7 +633,7 @@ void propiedades(int NNN, type_real *fof)
                   aux_mod = aux_dot = 0.0;
                   for(k=0;k<3;k++)
                   {
-                    Vprima[k] = P[i].Vel[k] - Seg[icent].Vmedia[j+binsper*k];
+                    Vprima[k] = P[i].Vel[k] - Vmedia[j+binsper*k];
 
                     mean[j][k] += Vprima[k];
                     quad[j][k] += (Vprima[k]*Vprima[k]);
@@ -916,11 +703,502 @@ void propiedades(int NNN, type_real *fof)
   return;
 }
 
+int point_inside(type_real dot, type_real rlong_2)
+{
+  if(fabs(dot)>rlong_2){
+
+      return 0;
+
+  }else{
+
+    return 1;
+
+  }
+}
+
+int cmp(const void * a, const void * b)
+{
+  return ( *(int*)a - *(int*)b );
+}
+
+void stadistic(int n, type_real *MAX, type_real *MIN, type_real *LMAX) 
+{
+  int i, j;
+  type_real mean, median, sumquad, std, *a;
+
+  a = (type_real *) malloc(n*sizeof(type_real));
+
+  j = 0;
+  mean = sumquad = 0.0;
+  for(i=0;i<n;i++) 
+  {
+    a[j] = Seg[i].len;
+    mean+=a[j];
+    sumquad+=a[j]*a[j];
+    j++;
+  }
+
+  if(j!=n)
+     a = (type_real *) realloc(a,j*sizeof(type_real));
+
+  qsort(a, j, sizeof(type_real), cmp);
+
+  mean /= (type_real)j;
+  sumquad /= (type_real)j;
+  
+  std = sqrt(sumquad - mean*mean);
+  
+  fprintf(stdout,"elements %d\n",j);
+  fprintf(stdout,"mean %f\n",mean);
+  fprintf(stdout,"std  %f\n",std);
+  fprintf(stdout,"min %f\n",a[0]);
+  fprintf(stdout,"max %f\n",a[j-1]);
+
+  *LMAX = a[j-1]/(type_real)nbins;
+  *LMAX *= 2.0;
+
+  if(j%2==0) {
+      median = (a[j/2] + a[j/2 - 1])*0.5;
+      fprintf(stdout,"median %f\n",median);
+  } else {
+      median = a[j/2];
+      fprintf(stdout,"median %f\n",median);
+  }
+
+  if(mean>median)
+    *MAX = mean;
+  else
+    *MAX = median;
+
+  //*MAX = 500.*ceil(*MAX/1000.);
+  *MAX = 40000.;  
+  *MIN = *MAX/50.;
+
+  free(a);
+  
+  return;
+}
+
+#ifdef BIN_LOG
+void logspace(type_real *rcil2, type_real max, type_real min, int bins) 
+{
+
+  int i;
+  type_real end   = log10(max);
+  type_real start = log10(min);
+  type_real delta = (end - start) / (bins-1);
+
+  rcil2[0] = pow(10.0,end);   
+  rcil2[0] *= rcil2[0];
+
+  for(i=1;i<bins; i++)
+  {
+    rcil2[i] = pow(10.0,(start + delta * (bins - 1 - i)));
+    rcil2[i] *= rcil2[i];
+  }  
+
+  return;
+}
+
+#else
+
+void linspace(type_real *rcil2, type_real max, type_real min, int bins) 
+{
+
+  int i;
+  type_real end   = max;
+  type_real start = min;
+  type_real delta = (end - start) / (bins-1);
+
+  rcil2[0] = end;   
+  rcil2[0] *= rcil2[0];
+
+  for(i=1;i<bins; i++)
+  {
+    rcil2[i] = start + delta * (bins - 1 - i);
+    rcil2[i] *= rcil2[i];
+  }  
+
+  return;
+}
+
+#endif
+
+#ifdef SAVEPART
+
+  void calcular_mean(const int i, const int binsper, const type_real rsep, \
+           const type_real rlong, const type_real rlong_2, type_real * const rcil2,\
+  type_real **vmean, type_real **vquad, type_real *vmean_par, type_real *vquad_par,\
+  type_real *vmean_perp, type_real *vquad_perp, type_real *nodo, struct node_sph **root,\
+  int *size_part, int *vpart)
+
+#else
+
+  void calcular_mean(const int i, const int binsper, const type_real rsep, \
+           const type_real rlong, const type_real rlong_2, type_real * const rcil2,\
+  type_real **vmean, type_real **vquad, type_real *vmean_par, type_real *vquad_par,\
+  type_real *vmean_perp, type_real *vquad_perp, type_real *nodo, struct node_sph **root)
+
+#endif
+{
+  int k,l,j,idim;
+  int bin,lbin;
+  int vsize[ncil];
+  type_real vdir[3];
+  type_real Pos_cent[3];
+  type_real mod_v[3];
+  type_real r,rbin,racum;
+  type_real *volinv;                // En Kpc
+  type_real dens, lenrbin;
+
+  volinv = (type_real *) malloc(ncil*sizeof(type_real));
+
+  r = 0.0f;
+  for(j=binsper-2;j>=0;j--) // arranco en binsper-2 porque el primer cilindro esta completo
+  {
+    volinv[j] = M_PI*rlong*rcil2[j];
+
+    #ifdef HUECOS
+     volinv[j] -= r;
+
+     r = M_PI*rlong*rcil2[j];
+    #endif  
+
+    volinv[j] = ((cp.lbox*cp.lbox*cp.lbox)/volinv[j])/(type_real)cp.npart;
+  }
+
+  racum   = 0.0;
+  lenrbin = 0.0;
+  l = 0;
+
+  ///////////////////////////////////////////////////////
+  r = 0.0;
+  for(idim=0;idim<3;idim++)
+  {
+    vdir[idim] = Gr[Seg[i].list[1]].Pos[idim]-Gr[Seg[i].list[0]].Pos[idim];    
+    #ifdef PERIODIC
+    if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
+    if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
+    #endif
+    r += vdir[idim]*vdir[idim];
+  }
+  r = sqrt(r);
+
+  for(idim=0;idim<3;idim++)
+    vdir[idim] *= (1./r);
+  ///////////////////////////////////////////////////////
+
+  #ifdef SAVEPART
+  calc_part(Gr[Seg[i].list[0]].Pos,Seg[i].Vmedia,vpart,size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
+  #else
+  calc_part(Gr[Seg[i].list[0]].Pos,Seg[i].Vmedia,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+  #endif
+
+  nodo[l] = lenrbin; 
+
+  for(j=0;j<ncil;j++)
+  {
+    dens = (type_real)vsize[j]*volinv[j];
+    push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
+    vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
+  }
+  l++; // sumo
+
+  k=1;
+  while(l!=nbins-1)
+  {    
+
+    r = 0.0f;
+    for(idim=0;idim<3;idim++)
+    {
+      vdir[idim] = Gr[Seg[i].list[k]].Pos[idim]-Gr[Seg[i].list[k-1]].Pos[idim];    
+      #ifdef PERIODIC
+      if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
+      if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
+      #endif
+      r += vdir[idim]*vdir[idim];
+    }
+    r = sqrt(r);
+
+    for(idim=0;idim<3;idim++)
+    {
+      vdir[idim] *= (1.0/r);
+      Pos_cent[idim] = Gr[Seg[i].list[k-1]].Pos[idim];
+    }
+
+    rbin = rsep-racum;
+
+    if(r<rbin)
+    {
+      racum += r;
+      continue;
+    }
+  
+    for(idim=0;idim<3;idim++)
+    {
+      Pos_cent[idim] += rbin*vdir[idim];
+      #ifdef PERIODIC
+      Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+      Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+      #endif
+    }
+
+    #ifdef SAVEPART
+    calc_part(Pos_cent,Seg[i].Vmedia,vpart,size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+    #else
+    calc_part(Pos_cent,Seg[i].Vmedia,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+    #endif
+    lenrbin += rsep;
+
+    nodo[l] = lenrbin; 
+    for(j=0;j<ncil;j++)
+    {
+      dens = (type_real)vsize[j]*volinv[j];
+      push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
+      vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
+    }
+    l++; // sumo
+
+    r = 0.0;
+    for(idim=0;idim<3;idim++)
+    {
+      mod_v[idim] = Gr[Seg[i].list[k]].Pos[idim]-Pos_cent[idim];
+      #ifdef PERIODIC
+      mod_v[idim] = mod_v[idim] >= 0.5*cp.lbox ? mod_v[idim]-cp.lbox : mod_v[idim];
+      mod_v[idim] = mod_v[idim] < -0.5*cp.lbox ? mod_v[idim]+cp.lbox : mod_v[idim];
+      #endif
+      r += mod_v[idim]*mod_v[idim];
+    }
+    r = sqrt(r);
+
+    lbin = (type_int)(r/rsep);
+
+    bin=0;
+    while(l!=nbins-1 && bin<lbin)
+    {
+
+      for(idim=0;idim<3;idim++)
+      {
+        Pos_cent[idim] += rsep*vdir[idim];
+        #ifdef PERIODIC
+        Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+        Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+        #endif
+      }
+
+      #ifdef SAVEPART
+      calc_part(Pos_cent,Seg[i].Vmedia,vpart,size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+      #else
+      calc_part(Pos_cent,Seg[i].Vmedia,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+      #endif
+
+      lenrbin += rsep;
+      nodo[l] = lenrbin; 
+
+      for(j=0;j<ncil;j++)
+      {
+        dens = (type_real)vsize[j]*volinv[j];
+        push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
+        vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
+      }
+
+      l++; // sumo
+      bin++;
+    }
+
+    racum = r-(type_real)lbin*rsep;
+    k++;
+  }
+
+  ///////////////////////////////////////////////////////
+  r = 0.0f;
+  for(idim=0;idim<3;idim++)
+  {
+    vdir[idim] = Gr[Seg[i].list[Seg[i].size-1]].Pos[idim]-Gr[Seg[i].list[Seg[i].size-2]].Pos[idim];    
+    #ifdef PERIODIC
+    if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
+    if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
+    #endif
+    r += vdir[idim]*vdir[idim];
+  }
+  r = sqrt(r);
+
+  for(idim=0;idim<3;idim++)
+    vdir[idim] *= (1./r);
+  ///////////////////////////////////////////////////////
+
+  #ifdef SAVEPART
+  calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,Seg[i].Vmedia,vpart,size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
+  #else
+  calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,Seg[i].Vmedia,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+  #endif
+
+  nodo[l] = Seg[i].len; 
+  for(j=0;j<ncil;j++)
+  {
+    dens = (type_real)vsize[j]*volinv[j];
+    push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
+    vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
+  }
+  l++; // sumo
+
+  assert(l==nbins);
+
+  free(volinv);
+}
+
 #ifdef CALCULA_MEDIA
 
-void calc_media(type_real *Pos_cent, type_real *versor, int *numpart, type_real *vel_media, type_real *rcil2, type_real rlong_2, int binsper)
+void cylinder_mean(const int i, const type_real rsep, const type_real rlong, \
+                   const type_real rlong_2, type_real * const rcil2)
 {
-  int i,j,k;
+  int *npart;
+  int k,l,idim;
+  int bin,lbin;
+  type_real vdir[3];
+  type_real Pos_cent[3];
+  type_real mod_v[3];
+  type_real r,rbin,racum;
+
+  npart = (int *) calloc(ncil,sizeof(int));
+  l = 0;
+  racum = 0.0f;
+
+  ///////////////////////////////////////////////////////
+  r = 0.0f;
+  for(idim=0;idim<3;idim++)
+  {
+    vdir[idim] = Gr[Seg[i].list[1]].Pos[idim]-Gr[Seg[i].list[0]].Pos[idim];    
+    #ifdef PERIODIC
+    if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
+    if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
+    #endif
+    r += vdir[idim]*vdir[idim];
+  }
+  r = sqrt(r);
+
+  for(idim=0;idim<3;idim++)
+    vdir[idim] *= (1.0/r);
+  ///////////////////////////////////////////////////////
+
+  calc_media(Gr[Seg[i].list[0]].Pos,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);             
+  l++;
+
+  k = 1;
+  while(l!=nbins-1)
+  {
+
+    r = 0.0f;
+    for(idim=0;idim<3;idim++)
+    {
+      vdir[idim] = Gr[Seg[i].list[k]].Pos[idim]-Gr[Seg[i].list[k-1]].Pos[idim];    
+      #ifdef PERIODIC
+      if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
+      if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
+      #endif
+      r += vdir[idim]*vdir[idim];
+    }
+    r = sqrt(r);
+
+    for(idim=0;idim<3;idim++)
+    {
+      vdir[idim] *= (1.0/r);
+      Pos_cent[idim] = Gr[Seg[i].list[k-1]].Pos[idim];
+    }
+
+    rbin = rsep-racum;
+
+    if(r<rbin)
+    {
+      racum += r;
+      continue;
+    }
+
+    for(idim=0;idim<3;idim++)
+    {
+      Pos_cent[idim] += rbin*vdir[idim];  
+      #ifdef PERIODIC
+      Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+      Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+      #endif
+    }
+
+    calc_media(Pos_cent,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);             
+    l++;
+
+    r = 0.0;
+    for(idim=0;idim<3;idim++)
+    {
+      mod_v[idim] = Gr[Seg[i].list[k]].Pos[idim]-Pos_cent[idim];
+      #ifdef PERIODIC
+      mod_v[idim] = mod_v[idim] >= 0.5*cp.lbox ? mod_v[idim]-cp.lbox : mod_v[idim];
+      mod_v[idim] = mod_v[idim] < -0.5*cp.lbox ? mod_v[idim]+cp.lbox : mod_v[idim];
+      #endif
+      r += mod_v[idim]*mod_v[idim];
+    }
+    r = sqrt(r);
+
+    lbin = (type_int)(r/rsep);
+
+    bin = 0;
+    while(l!=nbins-1 && bin<lbin)
+    {
+
+      for(idim=0;idim<3;idim++)
+      {
+        Pos_cent[idim] += rsep*vdir[idim];  
+        #ifdef PERIODIC
+        Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+        Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+        #endif
+      }
+      calc_media(Pos_cent,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);
+
+      l++;
+      bin++;
+    }
+
+    racum = r-(type_real)lbin*rsep;
+    k++;
+  }
+
+  ///////////////////////////////////////////////////////
+  r = 0.0f;
+  for(idim=0;idim<3;idim++)
+  {
+    vdir[idim] = Gr[Seg[i].list[Seg[i].size-1]].Pos[idim]-Gr[Seg[i].list[Seg[i].size-2]].Pos[idim];    
+    #ifdef PERIODIC
+    if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
+    if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
+    #endif
+    r += vdir[idim]*vdir[idim];
+  }
+  r = sqrt(r);
+
+  for(idim=0;idim<3;idim++)
+    vdir[idim] *= (1./r);
+  ///////////////////////////////////////////////////////
+
+  calc_media(Gr[Seg[i].list[Seg[i].size-1]].Pos,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);             
+  l++;
+
+  assert(l==nbins);
+
+  for(bin=0;bin<ncil;bin++)
+  {
+    Seg[i].Vmedia[3*bin + 0] *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+    Seg[i].Vmedia[3*bin + 1] *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+    Seg[i].Vmedia[3*bin + 2] *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+  }
+
+  free(npart);
+
+}
+
+void calc_media(type_real * const Pos_cent, type_real * const versor, int *numpart, type_real *vel_media, type_real * const rcil2, const type_real rlong_2,
+const int binsper)
+{
+  int i,j;
   int ixc, iyc, izc;
   int ixci, iyci, izci;
   int ixcf, iycf, izcf;
@@ -1000,33 +1278,22 @@ void calc_media(type_real *Pos_cent, type_real *versor, int *numpart, type_real 
 
           dot = Posprima[0]*versor[0]+Posprima[1]*versor[1]+Posprima[2]*versor[2];
 
-          //if(point_inside(dot,rlong_2)==1)
-          if(point_inside(dot,rlong_2) & 1)
+          if(point_inside(dot,rlong_2)==1)
           {
             dis = Posprima[0]*Posprima[0]+Posprima[1]*Posprima[1]+Posprima[2]*Posprima[2] - dot*dot;
 
             //if(dis<rcil2[0] && dis>rcil2[binsper])
             if(dis<rcil2[0])
             {
-
-             for(k=0;k<3;k++)
-               vel_media[binsper*k] += P[i].Vel[k];
-
-             numpart[0]++;
-
-             for(j=1;j<binsper;j++)
+              //for(j=0;j<binsper;j++)
+              for(j=0;j<ncil;j++)
               {
                 if(dis<rcil2[j])
                 {
-                  for(k=0;k<3;k++)
-                    vel_media[j+binsper*k] += P[i].Vel[k];
-
+                  vel_media[3*j+0] += P[i].Vel[0];
+                  vel_media[3*j+1] += P[i].Vel[1];
+                  vel_media[3*j+2] += P[i].Vel[2];
                   numpart[j]++;
-
-                }else{
-
-                  break;
-
                 }
               }
             }
@@ -1044,118 +1311,489 @@ void calc_media(type_real *Pos_cent, type_real *versor, int *numpart, type_real 
 
 #endif
 
-int point_inside(type_real dot, type_real rlong_2)
-{
-  if(fabs(dot)>rlong_2){
+#ifdef EXTEND
 
-      return 0;
-
-  }else{
-
-    return 1;
-
-  }
-}
-
-int cmp(const void * a, const void * b)
-{
-  return ( *(int*)a - *(int*)b );
-}
-
-void stadistic(int n, type_real *MAX, type_real *MIN, type_real *LMAX) 
-{
-  int i, j;
-  type_real mean, median, sumquad, std, *a;
-
-  a = (type_real *) malloc(n*sizeof(type_real));
-
-  j = 0;
-  mean = sumquad = 0.0;
-  for(i=0;i<n;i++) 
-  {
-    a[j] = Seg[i].len;
-    mean+=a[j];
-    sumquad+=a[j]*a[j];
-    j++;
-  }
-
-  if(j!=n)
-     a = (type_real *) realloc(a,j*sizeof(type_real));
-
-  qsort(a, j, sizeof(type_real), cmp);
-
-  mean /= (type_real)j;
-  sumquad /= (type_real)j;
+  #ifdef SAVEPART
   
-  std = sqrt(sumquad - mean*mean);
+    void ext_mean(FILE *pfextend; const int i, const int binsper, const type_real rsep,\
+    const type_real rlong, const type_real rlong_2, type_real * const rcil2,\
+    int *size_part, int *vpart)
+ 
+  #else
   
-  fprintf(stdout,"elements %d\n",j);
-  fprintf(stdout,"mean %f\n",mean);
-  fprintf(stdout,"std  %f\n",std);
-  fprintf(stdout,"min %f\n",a[0]);
-  fprintf(stdout,"max %f\n",a[j-1]);
+    void ext_mean(FILE *pfextend, const int i, const int binsper, const type_real rsep,\
+    const type_real rlong, const type_real rlong_2, type_real * const rcil2)
+ 
+  #endif
+  {
+    int l,j,idim;
+    int bin,lbin;
+    int vsize[ncil];
+    int *npart;
+    type_real aux_mean, aux_rms;
+    type_real r, dens;
+    type_real vdir[3];
+    type_real Pos_cent[3];
+    type_real *volinv;                // En Kpc
+    type_real *Vmean;                 // En Kpc
+    type_real *nodo;
+    type_real *vmean_par, *vquad_par;
+    type_real *vmean_perp, *vquad_perp;
+    type_real **vmean, **vquad;
+    struct node_sph **root;
+  
+    ////////////////////////////////////////////////////////////////////////////////
+    l = 0;
+    lbin = nbins%2==0 ? nbins/2 : (int)floor((float)nbins/2);
+    assert(lbin!=0);
 
-  *LMAX = a[j-1]/(type_real)nbins;
-  *LMAX *= 2.0;
+    volinv = (type_real *) malloc(ncil*sizeof(type_real));
+    Vmean  = (type_real *) calloc(3*ncil,sizeof(type_real));
+    npart  = (int *) calloc(ncil,sizeof(int));
 
-  if(j%2==0) {
-      median = (a[j/2] + a[j/2 - 1])*0.5;
-      fprintf(stdout,"median %f\n",median);
-  } else {
-      median = a[j/2];
-      fprintf(stdout,"median %f\n",median);
+    nodo = (type_real *) malloc(lbin*sizeof(type_real));
+    vmean_par = (type_real *) malloc(ncil*sizeof(type_real));
+    vquad_par = (type_real *) malloc(ncil*sizeof(type_real));
+    vmean_perp = (type_real *) malloc(ncil*sizeof(type_real));
+    vquad_perp = (type_real *) malloc(ncil*sizeof(type_real));   
+
+    root = (struct node_sph **) malloc(ncil*sizeof(struct node_sph *));
+    vmean = (type_real **) malloc(ncil*sizeof(type_real *));
+    vquad = (type_real **) malloc(ncil*sizeof(type_real *));
+    for(j=0;j<ncil;j++)
+    {
+      root[j] = (struct node_sph *) malloc(lbin*sizeof(struct node_sph));
+      vmean[j] = (type_real *) malloc(3*sizeof(type_real));
+      vquad[j] = (type_real *) malloc(3*sizeof(type_real));
+    }
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    j = 2*lbin;
+    fwrite(&i,sizeof(int),1,pfextend);                   // Num Filamento
+    fwrite(&Seg[i].len,sizeof(type_real),1,pfextend);    // escribe la longitud del segmento
+    fwrite(&j,sizeof(int),1,pfextend);                   // la cantidad de cilindros que voy a hacer
+    ////////////////////////////////////////////////////////////////////////////////      
+
+    ////////////////////////////////////////////////////////////////////////////////
+    r = 0.0f;
+    for(j=binsper-2;j>=0;j--) // arranco en binsper-2 porque el primer cilindro esta completo
+    {
+      volinv[j] = M_PI*rlong*rcil2[j];
+  
+      #ifdef HUECOS
+       volinv[j] -= r;
+  
+       r = M_PI*rlong*rcil2[j];
+      #endif  
+  
+      volinv[j] = ((cp.lbox*cp.lbox*cp.lbox)/volinv[j])/(type_real)cp.npart;
+    }
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    r = 0.0f;
+    for(idim=0;idim<3;idim++)
+    {
+      vdir[idim] = Gr[Seg[i].list[1]].Pos[idim]-Gr[Seg[i].list[0]].Pos[idim];    
+      #ifdef PERIODIC
+      if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
+      if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
+      #endif
+      r += vdir[idim]*vdir[idim];
+    }
+    r = sqrt(r);
+
+    for(idim=0;idim<3;idim++)
+    {
+      vdir[idim] *= (1/r); // directo
+      Pos_cent[idim] = Gr[Seg[i].list[0]].Pos[idim] - (type_real)(lbin-1)*rsep*vdir[idim];
+      #ifdef PERIODIC
+      Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+      Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+      #endif
+    }
+    ///////////////////////////////////////////////////////////////////////////////
+    calc_media(Pos_cent,vdir,npart,Vmean,rcil2,rlong_2,ncil);
+    l++;
+
+    while(l<lbin)
+    {
+      for(idim=0;idim<3;idim++)
+      {
+        Pos_cent[idim] += rsep*vdir[idim];
+        #ifdef PERIODIC
+        Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+        Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+        #endif
+      }
+      
+      if(l==lbin-1)
+        calc_media(Gr[Seg[i].list[0]].Pos,vdir,npart,Vmean,rcil2,rlong_2,ncil);
+      else
+        calc_media(Pos_cent,vdir,npart,Vmean,rcil2,rlong_2,ncil);
+      l++;
+    }    
+ 
+    assert(l==lbin);
+
+    for(bin=0;bin<ncil;bin++)
+    {
+      Vmean[bin]        *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+      Vmean[bin+ncil]   *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+      Vmean[bin+2*ncil] *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+    }
+    ////////////////////////////////////////////////////////////////////////////////
+
+    l = 0;
+    for(idim=0;idim<3;idim++)
+    {
+      Pos_cent[idim] = Gr[Seg[i].list[0]].Pos[idim] - (lbin-1)*rsep*vdir[idim];
+      #ifdef PERIODIC
+      Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+      Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+      #endif
+    }
+
+    #ifdef SAVEPART
+      //calc_part(Pos_cent,Vmean,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
+      calc_part(Pos_cent,Seg[i].Vmedia,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
+    #else
+      //calc_part(Pos_cent,Vmean,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+      calc_part(Pos_cent,Seg[i].Vmedia,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+    #endif
+
+    nodo[l] = -(type_real)(lbin-1)*rsep;
+    for(j=0;j<ncil;j++)
+    {
+      dens = (type_real)vsize[j]*volinv[j];
+      push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
+      vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
+    }
+    l++; // sumo  
+ 
+    while(l<lbin)
+    {  
+      for(idim=0;idim<3;idim++)
+      {
+        Pos_cent[idim] += rsep*vdir[idim];
+        #ifdef PERIODIC
+        Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+        Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+        #endif
+      }
+
+      #ifdef SAVEPART
+        if(l==lbin-1)
+          //calc_part(Gr[Seg[i].list[0]].Pos,Vmean,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
+          calc_part(Gr[Seg[i].list[0]].Pos,Seg[i].Vmedia,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
+        else
+          //calc_part(Pos_cent,Vmean,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+          calc_part(Pos_cent,Seg[i].Vmedia,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+      #else
+        if(l==lbin-1)
+          //calc_part(Gr[Seg[i].list[0]].Pos,Vmean,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+          calc_part(Gr[Seg[i].list[0]].Pos,Seg[i].Vmedia,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+        else
+          //calc_part(Pos_cent,Vmean,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+          calc_part(Pos_cent,Seg[i].Vmedia,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+      #endif
+ 
+      nodo[l] = nodo[l-1]+rsep;   
+      for(j=0;j<ncil;j++)
+      {
+        dens = (type_real)vsize[j]*volinv[j];
+        push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
+        vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
+      }
+  
+      l++; // sumo
+    }
+  
+    assert(l==lbin);
+    
+    ////////////////////////////////////////////////////////////////////////////////
+    for(j=0;j<lbin;j++)
+    {
+      nodo[j] = j==lbin-1 ? 0.0f : nodo[j];
+      //r = nodo[j]/Seg[i].len; // Para normalizarlo
+      r = nodo[j];              // Sin normalizacion
+      fwrite(&r,sizeof(type_real),1,pfextend);
+    }
+
+    for(j=0;j<ncil;j++)
+    {
+
+      r  = sqrt(rcil2[j]);
+      r += sqrt(rcil2[j+1]);
+      r *= 0.5;
+
+      fwrite(&r,sizeof(type_real),1,pfextend);       // rbin_centre
+
+      for(l=0;l<lbin;l++)
+      {
+        root[j][l].b -= 1.0;
+
+        fwrite(&root[j][l].a,sizeof(int),1,pfextend);       // npart
+        fwrite(&root[j][l].b,sizeof(type_real),1,pfextend); // pho - overdense
+
+        ////////////////////////////////////////////////////////////////////////////////////
+
+        for(idim=0;idim<3;idim++)
+        {
+          root[j][l].c[idim] *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+          root[j][l].d[idim] *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        }
+        root[j][l].e *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        root[j][l].f *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        root[j][l].g *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        root[j][l].h *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+
+        aux_mean = aux_rms = 0.0;
+
+        for(idim=0;idim<3;idim++)
+        {
+          aux_mean  += root[j][l].c[idim];
+          aux_rms   += root[j][l].d[idim] - root[j][l].c[idim]*root[j][l].c[idim];
+        }
+        
+        aux_mean /= 3.0;        
+        aux_rms  = root[j][l].a>10 ? sqrt(fabs(aux_rms))/3.0 : 0.0;
+
+        fwrite(&aux_mean,sizeof(type_real),1,pfextend); // mean
+        fwrite(&aux_rms,sizeof(type_real),1,pfextend);  // rms
+
+        aux_mean = root[j][l].e;
+        aux_rms  = root[j][l].a>10 ? sqrt(fabs(root[j][l].f - root[j][l].e*root[j][l].e)) : 0.0;
+
+        fwrite(&aux_mean,sizeof(type_real),1,pfextend); // mean par
+        fwrite(&aux_rms,sizeof(type_real),1,pfextend);  // rms  par
+
+        aux_mean = root[j][l].g;
+        aux_rms  = root[j][l].a>10 ? sqrt(fabs(root[j][l].h - root[j][l].g*root[j][l].g)) : 0.0;
+
+        fwrite(&aux_mean,sizeof(type_real),1,pfextend); // mean perp        
+        fwrite(&aux_rms,sizeof(type_real),1,pfextend);  // rms  perp
+      }
+
+      free(vmean[j]);
+      free(vquad[j]);
+      free(root[j]);
+    }
+
+    free(nodo);
+    free(root);
+    free(vmean);
+    free(vquad);
+    free(vmean_par);
+    free(vquad_par);
+    free(vmean_perp);
+    free(vquad_perp);
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    l = 0;
+    memset(Vmean,0.0,3*ncil*sizeof(type_real));
+    memset(npart,0,ncil*sizeof(int));
+    nodo = (type_real *) malloc(lbin*sizeof(type_real));
+    vmean_par = (type_real *) malloc(ncil*sizeof(type_real));
+    vquad_par = (type_real *) malloc(ncil*sizeof(type_real));
+    vmean_perp = (type_real *) malloc(ncil*sizeof(type_real));
+    vquad_perp = (type_real *) malloc(ncil*sizeof(type_real));   
+
+    root = (struct node_sph **) malloc(ncil*sizeof(struct node_sph *));
+    vmean = (type_real **) malloc(ncil*sizeof(type_real *));
+    vquad = (type_real **) malloc(ncil*sizeof(type_real *));
+    for(j=0;j<ncil;j++)
+    {
+      root[j] = (struct node_sph *) malloc(lbin*sizeof(struct node_sph));
+      vmean[j] = (type_real *) malloc(3*sizeof(type_real));
+      vquad[j] = (type_real *) malloc(3*sizeof(type_real));
+    }
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    r = 0.0f;
+    for(idim=0;idim<3;idim++)
+    {
+      vdir[idim] = Gr[Seg[i].list[Seg[i].size-1]].Pos[idim]-Gr[Seg[i].list[Seg[i].size-2]].Pos[idim];    
+      #ifdef PERIODIC
+      if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
+      if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
+      #endif
+      r += vdir[idim]*vdir[idim];
+    }
+    r = sqrt(r);
+
+    for(idim=0;idim<3;idim++)
+    {
+      vdir[idim] *= (1/r); // reversa
+      Pos_cent[idim] = Gr[Seg[i].list[Seg[i].size-1]].Pos[idim];
+    }
+    ///////////////////////////////////////////////////////////////////////////////
+
+    calc_media(Gr[Seg[i].list[Seg[i].size-1]].Pos,vdir,npart,Vmean,rcil2,rlong_2,ncil);             
+    l++;
+   
+    while(l<lbin)
+    {
+      for(idim=0;idim<3;idim++)
+      {
+        Pos_cent[idim] += rsep*vdir[idim];
+        #ifdef PERIODIC
+        Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+        Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+        #endif
+      }
+ 
+      calc_media(Pos_cent,vdir,npart,Vmean,rcil2,rlong_2,ncil);
+      l++;
+    }
+
+    assert(l==lbin);
+
+    for(bin=0;bin<ncil;bin++)
+    {
+      Vmean[bin]        *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+      Vmean[bin+ncil]   *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+      Vmean[bin+2*ncil] *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    l = 0;
+    for(idim=0;idim<3;idim++)
+      Pos_cent[idim] = Gr[Seg[i].list[Seg[i].size-1]].Pos[idim];
+
+    #ifdef SAVEPART
+    //calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,Vmean,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
+    calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,Seg[i].Vmedia,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
+    #else
+    //calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,Vmean,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+    calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,Seg[i].Vmedia,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+    #endif
+  
+    nodo[l] = 0.0f;   
+    for(j=0;j<ncil;j++)
+    {
+      dens = (type_real)vsize[j]*volinv[j];
+      push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
+      vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
+    }
+    l++; // sumo  
+ 
+    while(l<lbin)
+    {  
+      for(idim=0;idim<3;idim++)
+      {
+        Pos_cent[idim] += rsep*vdir[idim];
+        #ifdef PERIODIC
+        Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+        Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+        #endif
+      }
+  
+      #ifdef SAVEPART
+        //calc_part(Pos_cent,Vmean,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+        calc_part(Pos_cent,Seg[i].Vmedia,vpart,&size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+      #else
+        //calc_part(Pos_cent,Vmean,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+        calc_part(Pos_cent,Seg[i].Vmedia,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
+      #endif
+  
+      nodo[l] = nodo[l-1]+rsep;   
+      for(j=0;j<ncil;j++)
+      {
+        dens = (type_real)vsize[j]*volinv[j];
+        push_array(&root[j][l],vsize[j],dens,vmean[j],vquad[j], \
+        vmean_par[j],vquad_par[j],vmean_perp[j],vquad_perp[j]);
+      }
+  
+      l++; // sumo
+    }
+  
+    assert(l==lbin);
+    
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    for(j=0;j<lbin;j++)
+    {
+      nodo[j] = j==0 ? Seg[i].len : Seg[i].len+nodo[j];
+      //r = nodo[j]/Seg[i].len; // Para normalizarlo
+      r = nodo[j];              // Sin normalizacion
+      fwrite(&r,sizeof(type_real),1,pfextend);
+    }
+
+    for(j=0;j<ncil;j++)
+    {
+
+      r  = sqrt(rcil2[j]);
+      r += sqrt(rcil2[j+1]);
+      r *= 0.5;
+
+      fwrite(&r,sizeof(type_real),1,pfextend);       // rbin_centre
+
+      for(l=0;l<lbin;l++)
+      {
+        root[j][l].b -= 1.0;
+
+        fwrite(&root[j][l].a,sizeof(int),1,pfextend);       // npart
+        fwrite(&root[j][l].b,sizeof(type_real),1,pfextend); // pho - overdense
+
+        ////////////////////////////////////////////////////////////////////////////////////
+
+        for(idim=0;idim<3;idim++)
+        {
+          root[j][l].c[idim] *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+          root[j][l].d[idim] *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        }
+        root[j][l].e *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        root[j][l].f *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        root[j][l].g *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+        root[j][l].h *= (root[j][l].a>0) ? 1./(type_real)root[j][l].a : 0.0;
+
+        aux_mean = aux_rms = 0.0;
+
+        for(idim=0;idim<3;idim++)
+        {
+          aux_mean  += root[j][l].c[idim];
+          aux_rms   += root[j][l].d[idim] - root[j][l].c[idim]*root[j][l].c[idim];
+        }
+        
+        aux_mean /= 3.0;        
+        aux_rms  = root[j][l].a>10 ? sqrt(fabs(aux_rms))/3.0 : 0.0;
+
+        fwrite(&aux_mean,sizeof(type_real),1,pfextend); // mean
+        fwrite(&aux_rms,sizeof(type_real),1,pfextend);  // rms
+
+        aux_mean = root[j][l].e;
+        aux_rms  = root[j][l].a>10 ? sqrt(fabs(root[j][l].f - root[j][l].e*root[j][l].e)) : 0.0;
+
+        fwrite(&aux_mean,sizeof(type_real),1,pfextend); // mean par
+        fwrite(&aux_rms,sizeof(type_real),1,pfextend);  // rms  par
+
+        aux_mean = root[j][l].g;
+        aux_rms  = root[j][l].a>10 ? sqrt(fabs(root[j][l].h - root[j][l].g*root[j][l].g)) : 0.0;
+
+        fwrite(&aux_mean,sizeof(type_real),1,pfextend); // mean perp        
+        fwrite(&aux_rms,sizeof(type_real),1,pfextend);  // rms  perp
+      }
+
+      free(vmean[j]);
+      free(vquad[j]);
+      free(root[j]);
+    }
+
+    free(nodo);
+    free(root);
+    free(vmean);
+    free(vquad);
+    free(vmean_par);
+    free(vquad_par);
+    free(vmean_perp);
+    free(vquad_perp);
+    free(Vmean);  
+    free(volinv);
+    free(npart);
   }
 
-  if(mean>median)
-    *MAX = mean;
-  else
-    *MAX = median;
-
-  //*MAX = 500.*ceil(*MAX/1000.);
-  *MAX = 14000.;  
-  *MIN = *MAX/50.;
-
-  free(a);
-  
-  return;
-}
-
-void logspace(type_real *rcil2, type_real max, type_real min, int bins) 
-{
-
-  int i;
-  type_real end   = log10(max);
-  type_real start = log10(min);
-  type_real delta = (end - start) / (bins-1);
-
-  rcil2[0] = pow(10.0,end);   
-  rcil2[0] *= rcil2[0];
-
-  for(i=1;i<bins; i++)
-  {
-    rcil2[i] = pow(10.0,(start + delta * (bins - 1 - i)));
-    rcil2[i] *= rcil2[i];
-  }  
-
-  return;
-}
-
-void linspace(type_real *rcil2, type_real max, type_real min, int bins) 
-{
-
-  int i;
-  type_real end   = max;
-  type_real start = min;
-  type_real delta = (end - start) / (bins-1);
-
-  rcil2[0] = end;   
-  rcil2[0] *= rcil2[0];
-
-  for(i=1;i<bins; i++)
-  {
-    rcil2[i] = start + delta * (bins - 1 - i);
-    rcil2[i] *= rcil2[i];
-  }  
-
-  return;
-}
+#endif

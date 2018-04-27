@@ -68,7 +68,6 @@ type_real *fof;
 #ifdef MCRITIC
 type_real m_critica;
 #endif
- 
 void init_variables(int argc, char **argv);
 
 #endif

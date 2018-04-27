@@ -77,7 +77,27 @@ void init_variables(int argc, char **argv){
     sprintf(message,"can't read file `%s`\nneed Nbins\n",filename);RED(message);
     exit(0);
   }
-  
+
+  #ifdef PRECDOUBLE
+  if(!fscanf(pfin,"%lf  \n",&len_min))
+  #else
+  if(!fscanf(pfin,"%f   \n",&len_min))
+  #endif
+  {
+    sprintf(message,"can't read file `%s`\nneed LEN MIN SEPARATION\n",filename);RED(message);
+    exit(0);
+  }
+
+  #ifdef PRECDOUBLE
+  if(!fscanf(pfin,"%lf  \n",&len_max))
+  #else
+  if(!fscanf(pfin,"%f   \n",&len_max))
+  #endif
+  {
+    sprintf(message,"can't read file `%s`\nneed LEN MAX SEPARATION\n",filename);RED(message);
+    exit(0);
+  }
+ 
   #ifdef MCRITIC
 
   #ifdef PRECDOUBLE
@@ -120,15 +140,16 @@ void init_variables(int argc, char **argv){
     fof[i] = cbrt(1./(1.+fof[i]));
   }
   sprintf(message,"Num bins:               %d\n",nbins);BLUE(message);
+  sprintf(message,"LEN_MIN [Mpc]   %f\n",len_min);RED(message);
+  sprintf(message,"LEN_MAX [Mpc]   %f\n",len_max);RED(message);
+  len_min *= 1000.;
+  len_max *= 1000.;
 
   #ifdef MCRITIC
   sprintf(message,"M_CRIT [10^10 Msol / h]  %f\n",m_critica);RED(message);
   #endif
 
   BLUE("********** Makefile Options ***********\n");
-  #ifdef DEBUG
-  BLUE("  DEBUG\n");
-  #endif
   #ifdef PERIODIC
   BLUE("  PERIODIC\n");
   #endif

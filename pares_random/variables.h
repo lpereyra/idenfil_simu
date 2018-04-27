@@ -56,6 +56,7 @@ int  nfrac;
 int  nbins;
 type_real *fof;
 type_real pmin[3], pmax[3];
+type_real len_min, len_max;
 #ifdef MCRITIC
 type_real m_critica;
 #endif

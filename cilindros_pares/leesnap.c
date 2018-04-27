@@ -193,11 +193,13 @@ void read_pares(int NNN, type_real *fof)
   fprintf(stdout,"Segmentos %d\n",cp.nseg);
   fflush(stdout);
 
+  fprintf(stdout,"----------- Le resta uno cdo LEE cuidado aca\n");
+  fflush(stdout);
+
   Seg = (struct segmentstd *) malloc(cp.nseg*sizeof(struct segmentstd));
 
   for(i=0;i<cp.nseg;i++)
   {
-    Seg[i].flag = 2;
     Seg[i].size = 2;
     Seg[i].list = (int *) malloc(Seg[i].size*sizeof(int));
 
@@ -208,10 +210,17 @@ void read_pares(int NNN, type_real *fof)
       assert(Seg[i].list[k]>=0);
     }
 
+
     fread(&Seg[i].len,sizeof(type_real),1,pf);
     fread(&mass_a,sizeof(type_real),1,pf);
     fread(&mass_b,sizeof(type_real),1,pf);
     Seg[i].razon = mass_b/mass_a;
+
+    Seg[i].flag = 0;
+    Seg[i].flag = mass_a>=NNN*cp.Mpart ? Seg[i].flag+1: Seg[i].flag;
+    Seg[i].flag = mass_b>=NNN*cp.Mpart ? Seg[i].flag+1: Seg[i].flag;
+  
+    assert(Seg[i].flag==2);
   }
 
   fclose(pf);
