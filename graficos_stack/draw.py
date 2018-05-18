@@ -62,17 +62,17 @@ def draw_out(binslog, binsper,         \
 
   #forest = 0.5*(binslog[1:]+binslog[:-1])
   #tree   = 0.5*(GD_pho[:,1:]+GD_pho[:,:-1])
-  #cset =  ax.contour(forest,binsper,tree,levels=Niveles,extend='both',colors='k')
-  #cset = ax.contourf(forest,binsper,tree,levels=Niveles,extend='both',cmap=cm.seismic)
 
   cset =  ax.contour(binslog,binsper,GD_pho,levels=Niveles,extend='both',colors='k')
   cset = ax.contourf(binslog,binsper,GD_pho,levels=Niveles,extend='both',cmap=cm.seismic)
 
-  #vpar = 0.5*(GD_mean_velpar[:,1:]+GD_mean_velpar[:,:-1])
-  #vper = 0.5*(GD_mean_velper[:,1:]+GD_mean_velper[:,:-1])
-  #plt.quiver(forest,binsper,vpar, vper,units='xy',pivot='mid')
+  #plt.quiver(binslog,binsper,GD_mean_velpar, GD_mean_velper,units='xy',pivot='middle')
 
-  plt.quiver(binslog,binsper,GD_mean_velpar, GD_mean_velper,units='xy',pivot='middle')
+  lw = np.sqrt(GD_mean_velpar**2+GD_mean_velper**2)
+
+  plt.streamplot(binslog,binsper,GD_mean_velpar,GD_mean_velper,density=[2.0, 2.0],
+  color=GD_pho,cmap=cm.cool,linewidth=3.0*lw/lw.max())
+  #color='cyan'
   #pivot : [ 'tail' | 'mid' | 'middle' | 'tip' ]
 
   cbar = plt.colorbar(cset)
@@ -90,11 +90,12 @@ def draw_out(binslog, binsper,         \
   ax = plt.subplot(2, 2, 1)
   Niveles = np.linspace(min_max_vmean_per[0],min_max_vmean_per[1],Nlevel)
 
-  cmapa = LinearSegmentedColormap('White_to_Blue', dict_WB, 256)
-
   cset =  ax.contour(binslog,binsper,GD_mean_velper,levels=Niveles,extend='both',colors='k')
   cset = ax.contourf(binslog,binsper,GD_mean_velper,levels=Niveles,extend='both',cmap=cm.seismic)
+
+  #cmapa = LinearSegmentedColormap('White_to_Blue', dict_WB, 256)
   #cset = ax.contourf(binslog,binsper,GD_mean_velper,levels=Niveles,extend='both',cmap=cmapa)
+
   cbar = plt.colorbar(cset)
   ax.set_title('MEDIA PERPENDICULAR')
   
@@ -181,7 +182,7 @@ def draw_scatter(data_x,data_y,x_label,y_label,x_log=False,y_log=False):
 
   return
 
-def save_pdf(lista_pho,lista_vel,label,num_bins,mean,percent):
+def save_pdf(lista_pho,lista_vel,label,num_bins,mean,percent,fixed):
 
   bdim = len(percent)
   m    = len(mean)
@@ -192,10 +193,16 @@ def save_pdf(lista_pho,lista_vel,label,num_bins,mean,percent):
   if 'q' in label:
 
     for i in range(bdim):
+      
+      if fixed == True:
+        pdf_pho = PdfPages('%.2f_%.2d_%.2d_fixed_pho_%s.pdf' % (m,percent[i],num_bins,label))
+        pdf_vel = PdfPages('%.2f_%.2d_%.2d_fixed_vel_%s.pdf' % (m,percent[i],num_bins,label))
+      else:
+        pdf_pho = PdfPages('%.2f_%.2d_%.2d_pho_%s.pdf' % (m,percent[i],num_bins,label))
+        pdf_vel = PdfPages('%.2f_%.2d_%.2d_vel_%s.pdf' % (m,percent[i],num_bins,label))
 
-      pdf_pho = PdfPages('%.2d_%.2d_%.2d_pho_%s.pdf' % (m,percent[i],num_bins,label))
-      pdf_vel = PdfPages('%.2d_%.2d_%.2d_vel_%s.pdf' % (m,percent[i],num_bins,label))
 
+        
       for j in range(m):
 
         pdf_pho.savefig(lista_pho[j,i])
@@ -208,8 +215,12 @@ def save_pdf(lista_pho,lista_vel,label,num_bins,mean,percent):
 
     for i in range(m):
 
-      pdf_pho = PdfPages('%.2f_%.2d_%.2d_pho_%s.pdf' % (mean[i],m,num_bins,label))
-      pdf_vel = PdfPages('%.2f_%.2d_%.2d_vel_%s.pdf' % (mean[i],m,num_bins,label))
+      if fixed == True:
+        pdf_pho = PdfPages('%.2f_%.2d_fixed_pho_%s.pdf' % (mean[i],num_bins,label))
+        pdf_vel = PdfPages('%.2f_%.2d_fixed_vel_%s.pdf' % (mean[i],num_bins,label))
+      else:
+        pdf_pho = PdfPages('%.2f_%.2d_pho_%s.pdf' % (mean[i],num_bins,label))
+        pdf_vel = PdfPages('%.2f_%.2d_vel_%s.pdf' % (mean[i],num_bins,label))
 
       for j in range(bdim):
 
@@ -223,10 +234,9 @@ def save_pdf(lista_pho,lista_vel,label,num_bins,mean,percent):
 
     print 'label error',label
 
-def realizo_graficos(POSFACTOR, num_bins, mean, leng, flag, rper, data, MNod, longitud, name_input = '', LOG = False):
+def realizo_graficos(num_bins, mean, leng, flag, rper, data, MNod, longitud, name_input = '', LOG = False):
 
-    longitud /= POSFACTOR
-    mask     = (longitud>mean[0]-1.0)*(longitud<mean[-1]+1.0)*(flag==2)
+    mask     = (longitud>mean[0]-1.0)*(longitud<mean[-1]+1.0)
     leng     = leng[mask]
     flag     = flag[mask]
     rper     = rper[mask]
@@ -234,9 +244,11 @@ def realizo_graficos(POSFACTOR, num_bins, mean, leng, flag, rper, data, MNod, lo
     MNod     = MNod[mask]
     longitud = longitud[mask]
 
-    leng /= POSFACTOR 
-    rper /= POSFACTOR 
- 
+
+    data["pho"] += 1.0
+    data["pho"][data["pho"]<1.0]   = 1.0
+    data["pho"][data["pho"]>1000.] = 1000.
+
     print data["pho"].shape
 
     min_max_pho    = [np.inf, -np.inf]
@@ -270,9 +282,9 @@ def realizo_graficos(POSFACTOR, num_bins, mean, leng, flag, rper, data, MNod, lo
     #  min_max_rmsper[1] = min_max_rmsper[1] if np.max(data_mask)<min_max_rmsper[1] else np.max(data_mask)
 
     if LOG == True:
-      min_max_pho    = [1.,  1000.]
+      min_max_pho    = [1., 1000.]
     else:
-      min_max_pho    = [1, 10.]
+      min_max_pho    = [0, 10.]
 
     min_max_velper = [-300.0,   0.]
     min_max_velpar = [-250.0, 250.]

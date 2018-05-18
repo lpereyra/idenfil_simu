@@ -35,9 +35,15 @@ int main(int argc, char **argv)
   read_pares(NNN,fof);
   read_grup_fof(fof);
 
+  #ifdef VEL_RELATIVA
+    grupos_fof(fof);
+    relativa_write(NNN,fof);
+  #endif
+
   /////////////////////////////////////////////////////////////////////////
   propiedades(NNN,fof);
   /////////////////////////////////////////////////////////////////////////
+
   free(P);
 
   for(i=0;i<cp.nseg;i++)

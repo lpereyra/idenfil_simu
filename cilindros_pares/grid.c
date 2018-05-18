@@ -39,16 +39,65 @@ void grid_build(void)
 
 		ibox = (ix * grid.ngrid + iy) * grid.ngrid + iz;
 
-#ifdef DEBUG
-    assert(ibox >= 0L);
-    if(ibox >= grid.ngrid*grid.ngrid*grid.ngrid)
-      printf("%d %lu %lu %lu %lu %f %f %f\n",i,ix,iy,iz,ibox,P[i].Pos[0],P[i].Pos[1],P[i].Pos[2]);
-    assert(ibox < grid.ngrid*grid.ngrid*grid.ngrid);
-#endif
+    grid.ll[i] = grid.llirst[ibox];
+    grid.llirst[ibox] = i;
+  }
+
+#ifdef REORDER
+
+  int j = 0;
+  for(ibox=0;ibox<grid.ngrid*grid.ngrid*grid.ngrid;++ibox)
+  {
+    i = grid.llirst[ibox];
+    grid.llirst[ibox] = -1;
+
+    while(i != -1)
+    {
+      int tmp = grid.ll[i];
+      grid.ll[i] = j;
+      i = tmp;
+      j++;
+    }
+  }
+
+  struct particle_data Psave, Psource;
+  unsigned int idsource, idsave, dest;
+
+  for(i=0;i<cp.npart;i++)
+  {
+    if(grid.ll[i] != i)
+	  {
+      Psource  = P[i];
+	    idsource = grid.ll[i];
+      dest     = grid.ll[i];
+
+      while(1)
+      {
+	       Psave  = P[dest];
+	       idsave = grid.ll[dest];
+
+	       P[dest] = Psource;
+	       grid.ll[dest] = idsource;
+
+	       if(dest == i)  break;
+
+	       Psource = Psave;
+	       idsource = idsave;
+	       dest = idsource;
+	    }
+	  }
+
+    ix = (unsigned long)((double)P[i].Pos[0]*fac);
+    iy = (unsigned long)((double)P[i].Pos[1]*fac);
+    iz = (unsigned long)((double)P[i].Pos[2]*fac);
+		ibox = (ix * grid.ngrid + iy) * grid.ngrid + iz;
 
     grid.ll[i] = grid.llirst[ibox];
     grid.llirst[ibox] = i;
   }
+
+#endif
+
 }
 
 void grid_free(void)

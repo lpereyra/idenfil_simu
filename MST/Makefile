@@ -2,7 +2,7 @@
 EXTRAS += -DPERIODIC    #periodic boundary condition
 #EXTRAS += -DPRECDOUBLE   #Pos and vel in double precision
 #EXTRAS += -DLONGIDS            #IDs are long integer
-#EXTRAS += -DMPC                #Positions in simulation Mpc/h
+EXTRAS += -DMPC                #Positions in simulation Mpc/h
 EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 EXTRAS += -DSTORE_VELOCITIES
 EXTRAS += -DSTORE_IDS
@@ -21,7 +21,7 @@ VPP_INC := -I/home/lpereyra/voro++/include/voro++
 VPP_LIB := -L/home/lpereyra/voro++/lib -lvoro++
 #VPP_INC := -I/usr/local/include/voro++
 #VPP_LIB := -lvoro++
-LIBS   := -lm 
+LIBS   := -lm
 
 .PHONY : cleanall clean todo 
 

@@ -39,7 +39,6 @@ struct particle_data
   type_int       id;
   #endif
   int            sub;
-  int            gr;
 };
 
 struct grup_data
@@ -51,7 +50,6 @@ struct grup_data
 };
 
 extern int  nfrac;
-extern int  ngrup;
 extern type_real  *fof;
 extern struct particle_data *P;
 extern struct grup_data *Gr;

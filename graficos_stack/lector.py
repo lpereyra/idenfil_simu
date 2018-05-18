@@ -38,9 +38,11 @@ def init(name):
 
 def some_read(pack):
 
-  filename = pack[0]
-  Ncil     = pack[1]
-  extend   = pack[2]
+  POSFACTOR = pack[0]
+  filename  = pack[1]
+  Ncil      = pack[2]
+  extend    = pack[3]
+  mask      = pack[4]
 
   aux_k, aux_flag, aux_data, aux_rper, aux_leng, aux_MNod, aux_lll \
   = [], [], [], [], [], [], []
@@ -62,58 +64,59 @@ def some_read(pack):
     idfil = np.fromfile(binario,dtype=np.int32,count=1)[0]
 
     fflag = np.fromfile(binario,dtype=np.int32,count=1)[0]
-    longitud = np.fromfile(binario,dtype=np.float32,count=1)[0]
+    longitud = np.fromfile(binario,dtype=np.float32,count=1)[0]/POSFACTOR
     M0 = np.fromfile(binario,dtype=np.float32,count=1)[0]
     M1 = np.fromfile(binario,dtype=np.float32,count=1)[0]
     lenbins = np.fromfile(binario,dtype=np.int32,count=1)[0]
 
-    dist = np.fromfile(binario,dtype=np.float32,count=lenbins)
+    dist = np.fromfile(binario,dtype=np.float32,count=lenbins)/POSFACTOR
 
     rr, sub = [None]*Ncil, [None]*Ncil
     for j in range(Ncil):
-      rr[j] = np.fromfile(binario,dtype=np.float32,count=1)[0]
+      rr[j] = np.fromfile(binario,dtype=np.float32,count=1)[0]/POSFACTOR
       sub[j] = np.fromfile(binario,dtype=ciltype,count=lenbins)
 
     ###########################################################################
     if extend == True:
       ext_idfil = np.fromfile(ext_binario,dtype=np.int32,count=1)[0]
       assert(idfil==ext_idfil)
-      ext_longitud = np.fromfile(ext_binario,dtype=np.float32,count=1)[0]
+      ext_longitud = np.fromfile(ext_binario,dtype=np.float32,count=1)[0]/POSFACTOR
       assert(longitud==ext_longitud)
       ext_lenbins = np.fromfile(ext_binario,dtype=np.int32,count=1)[0]
       assert(ext_lenbins%2==0)
       ext_lenbins = ext_lenbins/2
 
       ########## INICIO #########
-      ext_dist = np.fromfile(ext_binario,dtype=np.float32,count=ext_lenbins)
+      ext_dist = np.fromfile(ext_binario,dtype=np.float32,count=ext_lenbins)/POSFACTOR
       
       ext_rr, ext_sub = [None]*Ncil, [None]*Ncil
       for j in range(Ncil):
-        ext_rr[j]  = np.fromfile(ext_binario,dtype=np.float32,count=1)[0]
+        ext_rr[j]  = np.fromfile(ext_binario,dtype=np.float32,count=1)[0]/POSFACTOR
         ext_sub[j] = np.fromfile(ext_binario,dtype=ciltype,count=ext_lenbins)
 
       dist = np.concatenate((ext_dist[:-1],dist))
       rr   = np.mean((ext_rr,rr),axis=0)
       for j in range(Ncil):
-        #if(j==0): print ext_sub[j][-1],sub[j][0]
         sub[j] = np.concatenate((ext_sub[j][:-1],sub[j]),axis=0)
       ###########################
 
       ########### FINAL #########
-      ext_dist = np.fromfile(ext_binario,dtype=np.float32,count=ext_lenbins)
+      ext_dist = np.fromfile(ext_binario,dtype=np.float32,count=ext_lenbins)/POSFACTOR
       
       ext_rr, ext_sub = [None]*Ncil, [None]*Ncil
       for j in range(Ncil):
-        ext_rr[j]  = np.fromfile(ext_binario,dtype=np.float32,count=1)[0]
+        ext_rr[j]  = np.fromfile(ext_binario,dtype=np.float32,count=1)[0]/POSFACTOR
         ext_sub[j] = np.fromfile(ext_binario,dtype=ciltype,count=ext_lenbins)
 
       dist = np.concatenate((dist,ext_dist[1:]))
       rr   = np.mean((rr,ext_rr),axis=0)
       for j in range(Ncil):
-        #if(j==0): print sub[j][-1],ext_sub[j][0]
         sub[j] = np.concatenate((sub[j],ext_sub[j][1:]),axis=0)
       ###########################
-      
+
+    if sum([longitud>=item[0] and longitud<=item[1] \
+    for item in mask]) == 0: continue
+
     aux_flag.append(fflag)
     aux_leng.append(dist)
     aux_rper.append(rr)
@@ -130,16 +133,18 @@ def some_read(pack):
   np.asarray(aux_data), np.asarray(aux_MNod), np.asarray(aux_lll), np.asarray(aux_k)]
 
 
-def read_cilindros(Path, Name, Nfile, Ncil, extend=False):
+def read_cilindros(POSFACTOR, Path, Name, Nfile, Ncil, mask, extend=False):
 
   from multiprocessing import Pool
 
   Total = 0
 
+  mask = [[item-1.0, item+1.0] for item in mask]
+
   args = []
   for ifile in range(Nfile):
     filename = "%s%s.%.2d.bin" % (Path,Name,ifile)
-    args.append([filename, Ncil, extend])
+    args.append([POSFACTOR, filename, Ncil, extend, mask])
 
   pool = Pool()
   result = pool.map(some_read, args)
@@ -155,7 +160,7 @@ def read_cilindros(Path, Name, Nfile, Ncil, extend=False):
     rper.append(result[-1][3])
     data.append(result[-1][4])
     MNod.append(result[-1][5])
-    lll .append(result[-1][6])
+    lll.append( result[-1][6])
     #k.append(result[-1][7])
     result.pop()
 

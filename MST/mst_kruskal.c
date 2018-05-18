@@ -8,6 +8,7 @@
 #include <functional>
 #include <algorithm>
 
+#include "cosmoparam.h"
 #include "variables.h"
 #include "mst_kruskal.h"
 
@@ -20,7 +21,7 @@ int Root(int i, int *Padre)
  return Padre[i];
 }
 
-void DLU(int id, int pre, std::vector<std::vector<int> > &adj, int *Padre, int *Rank)
+void DLU(const int id, const int pre, std::vector<std::vector<int> > &adj, int *Padre, int *Rank)
 {
   int k,idv;
 
@@ -44,10 +45,10 @@ void DL(std::vector<std::vector<int> > &vec, int *Padre, int *Rank)
 {
   int i;
   
-  memset(Padre,-1,ngrup*sizeof(int));
-  memset(Rank,0,ngrup*sizeof(int));
+  memset(Padre,-1,cp.ngrup*sizeof(int));
+  memset(Rank,0,cp.ngrup*sizeof(int));
   
-  for(i=0;i<ngrup;i++)     
+  for(i=0;i<cp.ngrup;i++)     
     if(vec[i].size()==1)
       DLU(i,Padre[i],vec,Padre,Rank);
 
@@ -145,12 +146,12 @@ void Podado(int level, std::vector<std::vector<int> > &vec)
 
     #ifdef BRANCH_SURVIVE
       #pragma omp parallel for num_threads(N_threads) schedule(static) default(none) \
-      shared(ngrup,Gr,vec,cut,itera,N_part_survive) 
+      shared(cp,Gr,vec,cut,itera,N_part_survive) 
     #else
       #pragma omp parallel for num_threads(N_threads) schedule(static) default(none) \
-      shared(ngrup,Gr,vec,cut,itera)  
+      shared(cp,Gr,vec,cut,itera)  
     #endif
-    for(i=0;i<ngrup;i++)
+    for(i=0;i<cp.ngrup;i++)
     {
 
       if(vec[i].size()==1)
@@ -173,8 +174,8 @@ void Podado(int level, std::vector<std::vector<int> > &vec)
     if(itera==false) break;
 
     #pragma omp parallel for num_threads(N_threads) schedule(static) default(none) \
-    private(aux,k) shared(ngrup,vec) 
-    for(i=0;i<ngrup;i++)
+    private(aux,k) shared(cp,vec) 
+    for(i=0;i<cp.ngrup;i++)
     {
       if(vec[i].size()>2)
       {

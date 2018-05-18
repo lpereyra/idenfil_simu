@@ -71,10 +71,10 @@ int main(int argc, char **argv)
   fprintf(stdout,"%d NumEdges\n",(int)edges.size());
   fflush(stdout);
 
-  Padre = (int *) malloc(ngrup*sizeof(int));
-  Rank =  (int *) malloc(ngrup*sizeof(int));
+  Padre = (int *) malloc(cp.ngrup*sizeof(int));
+  Rank =  (int *) malloc(cp.ngrup*sizeof(int));
 
-  for(i=0;i<ngrup;i++)
+  for(i=0;i<cp.ngrup;i++)
   {
     Padre[i] = i;
     Rank[i] = 0;
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
   fflush(stdout);
   #endif
 
-  for(i=0;i<ngrup;i++)
+  for(i=0;i<cp.ngrup;i++)
   {
     Padre[i] = -1;
     Rank[i]  = 0;

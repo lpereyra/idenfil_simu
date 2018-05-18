@@ -311,3 +311,64 @@ void read_grup_fof(type_real *fof)
   return;
 
 }
+
+#ifdef VEL_RELATIVA
+
+void grupos_fof(type_real *fof)
+{
+
+  char filename[200];
+  int  i,j,k,id,idv;
+  int  size,len;
+  type_int *index;
+  FILE *pfin;
+
+  index = (type_int *) malloc((cp.npart+1)*sizeof(type_int)); // por si los id arrancan en 1
+
+  #pragma omp parallel for num_threads(NTHREADS) \
+  schedule(static) default(none) private(i) shared(P,index,cp)
+  for(i=0;i<cp.npart;i++)
+    index[P[i].id] = i;
+
+  sprintf(snap.root,"../../");
+  sprintf(filename,"%s%.2d_%.2f_fof.bin",snap.root,snap.num,fof[1]);
+
+  pfin = fopen(filename,"rb"); 
+  fread(&len,sizeof(int),1,pfin);
+
+  fprintf(stdout,"Archivo de Grupos %s\n",filename);
+  fflush(stdout); 
+
+  j = 0;
+  for(i=0;i<len;i++)
+  {   
+    fread(&k,sizeof(int),1,pfin);
+    fread(&id,sizeof(int),1,pfin); 
+    fread(&size,sizeof(int),1,pfin);
+
+    assert(Gr[i].NumPart==size);
+
+    Gr[i].Vnod[0] = Gr[i].Vnod[1] = Gr[i].Vnod[2] = 0.f;
+
+    j+=size;
+    for(k=0;k<size;k++)
+    {
+      fread(&idv,sizeof(int),1,pfin);
+
+      Gr[i].Vnod[0] += P[index[idv]].Vel[0];
+      Gr[i].Vnod[1] += P[index[idv]].Vel[1];
+      Gr[i].Vnod[2] += P[index[idv]].Vel[2];
+    }
+
+    for(k=0;k<3;k++)
+      Gr[i].Vnod[k] *= (1.0f/(type_real)size);
+
+  }
+
+  fprintf(stdout,"Grupos %d Part %d\n",i,j);
+
+  fclose(pfin);
+  free(index);
+}
+
+#endif

@@ -17,10 +17,10 @@
 
 void propiedades(int NNN, type_real *fof)
 {
-  char filename[200];
+  char filename[200], name[200];
   int i, j, l, idim, Tid, *c;
   int totfil = 0;
-  int binsper = ncil + 1;
+  int binsper;
   type_real *rcil2;                 // En Kpc                    
   type_real rsep;                   // En Kpc
   type_real rlong;                  // En Kpc
@@ -50,9 +50,18 @@ void propiedades(int NNN, type_real *fof)
 
   stadistic(cp.nseg,&RMAX,&RMIN,&LMAX); 
 
+  #ifdef FIXED_SEPARATION
+    ncil = (int)(RLEN/RSEP);
+    RLEN *= 1000.f;
+    RSEP *= 1000.f;
+    assert(RLEN<RMAX);
+    sprintf(message,"Num cylindres:          %d\n",ncil);BLUE(message);
+  #endif
+
   fprintf(stdout,"RMAX %f Mpc\n",RMAX/1000.);
   fprintf(stdout,"RMIN %f Mpc\n",RMIN/1000.);
   fprintf(stdout,"LMAX %f Mpc\n",LMAX/1000.);
+  binsper = ncil+1;
 
   //////////////////////////////////////////////////
   fprintf(stdout,"Build grid\n");
@@ -92,55 +101,55 @@ void propiedades(int NNN, type_real *fof)
   for(i=0;i<NTHREADS;i++)
   {
     c[i] = 0;
-
-    #ifdef MCRITIC
-    sprintf(filename,"%.2d_%.4d_densidad_cut_%.2f_%.2f_%.2f.%.2d.bin",snap.num,NNN,m_critica,fof[0],fof[1],i);
-    #else
-    sprintf(filename,"%.2d_%.4d_densidad_%.2f_%.2f.%.2d.bin",snap.num,NNN,fof[0],fof[1],i);
-    #endif
+    
+    set_name(name,NNN,"densidad");
+    sprintf(filename,"%.2d_%s_%.2f_%.2f.%.2d.bin",snap.num,name,fof[0],fof[1],i);
     pfdens[i]=fopen(filename,"w");
     fwrite(&c[i],sizeof(int),1,pfdens[i]);        
+    
+    fprintf(stdout,"%s\n",filename);
 
     #ifdef CALCULA_MEDIA
-      #ifdef MCRITIC
-        sprintf(filename,"../%.2d_%.4d_vmedia_cut_%.2f_%.2f_%.2f.%.2d.bin",snap.num,NNN,m_critica,fof[0],fof[1],i);
-      #else
-        sprintf(filename,"../%.2d_%.4d_vmedia_%.2f_%.2f.%.2d.bin",snap.num,NNN,fof[0],fof[1],i);
-      #endif
-    pfvel[i] = fopen(filename,"w");
-    fwrite(&c[i],sizeof(int),1,pfvel[i]);        
-    fwrite(&ncil,sizeof(int),1,pfvel[i]);
+      set_name(name,NNN,"vmedia");
+      sprintf(filename,"../%.2d_%s_%.2f_%.2f.%.2d.bin",snap.num,name,fof[0],fof[1],i);
+      pfvel[i] = fopen(filename,"w");
+      fwrite(&c[i],sizeof(int),1,pfvel[i]);        
+      fwrite(&ncil,sizeof(int),1,pfvel[i]);
     #endif
 
     #ifdef SAVEPART
-       #ifdef MCRITIC
-         sprintf(filename,"%.2d_%.4d_particulas_cut_%.2f_%.2f_%.2f.%.2d.bin",snap.num,NNN,m_critica,fof[0],fof[1],i);
-       #else
-         sprintf(filename,"%.2d_%.4d_particulas_%.2f_%.2f.%.2d.bin",snap.num,NNN,fof[0],fof[1],i);
-       #endif
-       pfpart[i] = fopen(filename,"w");
-       fwrite(&c[i],sizeof(int),1,pfpart[i]);    
+      set_name(name,NNN,"particulas");
+      sprintf(filename,"%.2d_%s_%.2f_%.2f.%.2d.bin",snap.num,name,fof[0],fof[1],i);
+      pfpart[i] = fopen(filename,"w");
+      fwrite(&c[i],sizeof(int),1,pfpart[i]);    
     #endif
 
     #ifdef EXTEND
-      #ifdef MCRITIC
-      sprintf(filename,"%.2d_%.4d_extend_cut_%.2f_%.2f_%.2f.%.2d.bin",snap.num,NNN,m_critica,fof[0],fof[1],i);
-      #else
-      sprintf(filename,"%.2d_%.4d_extend_%.2f_%.2f.%.2d.bin",snap.num,NNN,fof[0],fof[1],i);
-      #endif
+      set_name(name,NNN,"extend");
+      sprintf(filename,"%.2d_%s_%.2f_%.2f.%.2d.bin",snap.num,name,fof[0],fof[1],i);
       pfextend[i]=fopen(filename,"w");
       fwrite(&c[i],sizeof(int),1,pfextend[i]);        
     #endif
-
   }
 
   #ifdef CALCULA_MEDIA
 
   BLUE("**** CALCULA VEL MEDIAS ******\n");
-  #pragma omp parallel for num_threads(NTHREADS) \
-  schedule(dynamic) default(none) private(i,Tid, \
-  rcil2,r,rsep,rlong,rlong_2) \
-  shared(Gr,Seg,cp,ncil,binsper,c,pfvel,RMAX,RMIN,nbins)
+  #ifdef FIXED_SEPARATION
+
+    #pragma omp parallel for num_threads(NTHREADS) \
+    schedule(dynamic) default(none) private(i,Tid, \
+    rcil2,r,rsep,rlong,rlong_2) \
+    shared(Gr,Seg,cp,ncil,binsper,c,pfvel,RLEN,RMAX,RMIN,nbins)
+
+  #else
+
+    #pragma omp parallel for num_threads(NTHREADS) \
+    schedule(dynamic) default(none) private(i,Tid, \
+    rcil2,r,rsep,rlong,rlong_2) \
+    shared(Gr,Seg,cp,ncil,binsper,c,pfvel,RMAX,RMIN,nbins)
+
+  #endif
   for(i=0;i<cp.nseg;i++)
   {
     Tid = omp_get_thread_num();
@@ -151,7 +160,11 @@ void propiedades(int NNN, type_real *fof)
     rlong   = 2.0*rsep; 
     rlong_2 = rlong*0.5;
 
-    r = Seg[i].len;
+    #ifdef FIXED_SEPARATION
+      r = RLEN; // RLEN<RMAX
+    #else
+      r = Seg[i].len;
+    #endif
 
     if(r>RMAX)
     {
@@ -188,22 +201,44 @@ void propiedades(int NNN, type_real *fof)
 
   #endif
 
-  BLUE("********** CALCULA ***********\n"); 
+  BLUE("********** CALCULA ***********\n");
   #ifdef SAVEPART
   
     #ifdef EXTEND 
 
-      #pragma omp parallel for num_threads(NTHREADS) \
-      schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
-      r,rsep,rlong,rlong_2) shared(pfextend,pfdens,pfpart,Gr,P,Seg,cp, \
-      RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+      #ifdef FIXED_SEPARATION
+
+        #pragma omp parallel for num_threads(NTHREADS) \
+        schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+        r,rsep,rlong,rlong_2) shared(pfextend,pfdens,pfpart,Gr,P,Seg,cp, \
+        RLEN,RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+
+      #else
+
+        #pragma omp parallel for num_threads(NTHREADS) \
+        schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+        r,rsep,rlong,rlong_2) shared(pfextend,pfdens,pfpart,Gr,P,Seg,cp, \
+        RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+
+      #endif
 
     #else
 
-      #pragma omp parallel for num_threads(NTHREADS) \
-      schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
-      r,rsep,rlong,rlong_2) shared(pfdens,pfpart,Gr,P,Seg,cp, \
-      RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+      #ifdef FIXED_SEPARATION
+
+        #pragma omp parallel for num_threads(NTHREADS) \
+        schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+        r,rsep,rlong,rlong_2) shared(pfdens,pfpart,Gr,P,Seg,cp, \
+        RLEN,RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+    
+      #else
+  
+        #pragma omp parallel for num_threads(NTHREADS) \
+        schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+        r,rsep,rlong,rlong_2) shared(pfdens,pfpart,Gr,P,Seg,cp, \
+        RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+
+      #endif
 
     #endif
 
@@ -211,17 +246,39 @@ void propiedades(int NNN, type_real *fof)
   
     #ifdef EXTEND
 
-      #pragma omp parallel for num_threads(NTHREADS) \
-      schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
-      r,rsep,rlong,rlong_2) shared(pfextend,pfdens,Gr,P,Seg,cp, \
-      RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+      #ifdef FIXED_SEPARATION
+
+        #pragma omp parallel for num_threads(NTHREADS) \
+        schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+        r,rsep,rlong,rlong_2) shared(pfextend,pfdens,Gr,P,Seg,cp, \
+        RLEN,RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+
+      #else
+
+        #pragma omp parallel for num_threads(NTHREADS) \
+        schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+        r,rsep,rlong,rlong_2) shared(pfextend,pfdens,Gr,P,Seg,cp, \
+        RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+
+      #endif
 
     #else
 
-      #pragma omp parallel for num_threads(NTHREADS) \
-      schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
-      r,rsep,rlong,rlong_2) shared(pfdens,Gr,P,Seg,cp, \
-      RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+      #ifdef FIXED_SEPARATION
+      
+        #pragma omp parallel for num_threads(NTHREADS) \
+        schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+        r,rsep,rlong,rlong_2) shared(pfdens,Gr,P,Seg,cp, \
+        RLEN,RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+
+      #else
+
+        #pragma omp parallel for num_threads(NTHREADS) \
+        schedule(dynamic) default(none) private(i,j,l,idim,rcil2,Tid, \
+        r,rsep,rlong,rlong_2) shared(pfdens,Gr,P,Seg,cp, \
+        RMAX,RMIN,c,binsper,ncil,nbins,stdout) reduction(+:totfil)
+    
+      #endif
 
     #endif
 
@@ -246,7 +303,11 @@ void propiedades(int NNN, type_real *fof)
     rlong   = 2.0*rsep; 
     rlong_2 = rlong*0.5;
 
-    r = Seg[i].len;
+    #ifdef FIXED_SEPARATION
+      r = RLEN; // RLEN<RMAX
+    #else
+      r = Seg[i].len;      
+    #endif
 
     if(r>RMAX)
     {
@@ -443,11 +504,11 @@ void propiedades(int NNN, type_real *fof)
 }
 
 #ifdef SAVEPART
-  void calc_part(type_real * const Pos_cent, type_real * const Vmedia, int *vec, int *ncont, int *npart, type_real **mean, type_real **quad, \
-  type_real *versor, type_real *mean_par, type_real *quad_par, type_real *mean_perp, type_real *quad_perp, type_real *rcil2, type_real rlong_2, int binsper)
+  void calc_part(type_real * const Pos_cent, type_real * const Vmedia, int * vec, int * ncont, int * npart, type_real ** mean, type_real ** quad, \
+  type_real * versor, type_real * mean_par, type_real * quad_par, type_real * mean_perp, type_real * quad_perp, type_real * const rcil2, type_real rlong_2, int binsper)
 #else        
-  void calc_part(type_real * const Pos_cent, type_real * const Vmedia, int *npart, type_real **mean, type_real **quad, \
-  type_real *versor, type_real *mean_par, type_real *quad_par, type_real *mean_perp, type_real *quad_perp, type_real *rcil2, type_real rlong_2, int binsper)
+  void calc_part(type_real * const Pos_cent, type_real * const Vmedia, int * npart, type_real ** mean, type_real ** quad, \
+  type_real * versor, type_real * mean_par, type_real * quad_par, type_real * mean_perp, type_real * quad_perp, type_real * const rcil2, type_real rlong_2, int binsper)
 #endif
 {
   int i,j,k;
@@ -562,10 +623,9 @@ void propiedades(int NNN, type_real *fof)
               bin = 0;
               for(j=1;j<binsper;j++)
               {
-                if(dis<rcil2[j])
-                 bin = j;
-              }          
-              
+                bin = dis<rcil2[j] ? j : bin;
+              }
+
               #ifdef SAVEPART
               if(bin>=3 && !TestBit(vec,i))
               {
@@ -701,6 +761,29 @@ void propiedades(int NNN, type_real *fof)
   } //fin ixx
 
   return;
+}
+
+void set_name(char * name, const int NNN, char * prefix)
+{
+
+  #ifdef FIXED_SEPARATION
+    sprintf(name,"%.4d_fixed",NNN);
+  #else
+    sprintf(name,"%.4d_varia",NNN);
+  #endif
+
+  #ifdef MCRITIC
+    sprintf(name,"%s_%s_cut",name,prefix);
+  #else
+    sprintf(name,"%s_%s",name,prefix);
+  #endif
+
+  #ifdef BIN_LOG
+    sprintf(name,"%s_LOG",name);
+  #else
+    sprintf(name,"%s_LIN",name);
+  #endif
+
 }
 
 int point_inside(type_real dot, type_real rlong_2)
@@ -904,10 +987,8 @@ void linspace(type_real *rcil2, type_real max, type_real min, int bins)
   }
   l++; // sumo
 
-  k=1;
-  while(l!=nbins-1)
+  for(k=1; k<Seg[i].size; k++)
   {    
-
     r = 0.0f;
     for(idim=0;idim<3;idim++)
     {
@@ -973,8 +1054,7 @@ void linspace(type_real *rcil2, type_real max, type_real min, int bins)
 
     lbin = (type_int)(r/rsep);
 
-    bin=0;
-    while(l!=nbins-1 && bin<lbin)
+    for(bin=0;bin<lbin;bin++)
     {
 
       for(idim=0;idim<3;idim++)
@@ -1003,12 +1083,13 @@ void linspace(type_real *rcil2, type_real max, type_real min, int bins)
       }
 
       l++; // sumo
-      bin++;
     }
 
     racum = r-(type_real)lbin*rsep;
-    k++;
   }
+
+  if(l==nbins) 
+    l--; // sobre escribo el ultimo
 
   ///////////////////////////////////////////////////////
   r = 0.0f;
@@ -1084,8 +1165,7 @@ void cylinder_mean(const int i, const type_real rsep, const type_real rlong, \
   calc_media(Gr[Seg[i].list[0]].Pos,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);             
   l++;
 
-  k = 1;
-  while(l!=nbins-1)
+  for(k=1; k<Seg[i].size; k++)
   {
 
     r = 0.0f;
@@ -1140,8 +1220,7 @@ void cylinder_mean(const int i, const type_real rsep, const type_real rlong, \
 
     lbin = (type_int)(r/rsep);
 
-    bin = 0;
-    while(l!=nbins-1 && bin<lbin)
+    for(bin=0;bin<lbin;bin++)
     {
 
       for(idim=0;idim<3;idim++)
@@ -1155,12 +1234,13 @@ void cylinder_mean(const int i, const type_real rsep, const type_real rlong, \
       calc_media(Pos_cent,vdir,npart,Seg[i].Vmedia,rcil2,rlong_2,ncil);
 
       l++;
-      bin++;
     }
 
     racum = r-(type_real)lbin*rsep;
-    k++;
   }
+
+  if(l==nbins)
+    l--;     // sobre escribo el ultimo
 
   ///////////////////////////////////////////////////////
   r = 0.0f;
@@ -1198,7 +1278,7 @@ void cylinder_mean(const int i, const type_real rsep, const type_real rlong, \
 void calc_media(type_real * const Pos_cent, type_real * const versor, int *numpart, type_real *vel_media, type_real * const rcil2, const type_real rlong_2,
 const int binsper)
 {
-  int i,j;
+  int i,j,bin;
   int ixc, iyc, izc;
   int ixci, iyci, izci;
   int ixcf, iycf, izcf;
@@ -1285,17 +1365,17 @@ const int binsper)
             //if(dis<rcil2[0] && dis>rcil2[binsper])
             if(dis<rcil2[0])
             {
-              //for(j=0;j<binsper;j++)
-              for(j=0;j<ncil;j++)
+              bin = 0;
+              for(j=1;j<binsper;j++)
               {
-                if(dis<rcil2[j])
-                {
-                  vel_media[3*j+0] += P[i].Vel[0];
-                  vel_media[3*j+1] += P[i].Vel[1];
-                  vel_media[3*j+2] += P[i].Vel[2];
-                  numpart[j]++;
-                }
+                bin = dis<rcil2[j] ? j : bin;
               }
+
+              vel_media[3*bin+0] += P[i].Vel[0];
+              vel_media[3*bin+1] += P[i].Vel[1];
+              vel_media[3*bin+2] += P[i].Vel[2];
+              numpart[bin]++;
+
             }
           } // cierra dis
 
@@ -1326,8 +1406,7 @@ const int binsper)
  
   #endif
   {
-    int l,j,idim;
-    int bin,lbin;
+    int l,j,idim,lbin;
     int vsize[ncil];
     int *npart;
     type_real aux_mean, aux_rms;
@@ -1335,7 +1414,7 @@ const int binsper)
     type_real vdir[3];
     type_real Pos_cent[3];
     type_real *volinv;                // En Kpc
-    type_real *Vmean;                 // En Kpc
+    //type_real *Vmean;
     type_real *nodo;
     type_real *vmean_par, *vquad_par;
     type_real *vmean_perp, *vquad_perp;
@@ -1348,7 +1427,7 @@ const int binsper)
     assert(lbin!=0);
 
     volinv = (type_real *) malloc(ncil*sizeof(type_real));
-    Vmean  = (type_real *) calloc(3*ncil,sizeof(type_real));
+    //Vmean  = (type_real *) calloc(3*ncil,sizeof(type_real));
     npart  = (int *) calloc(ncil,sizeof(int));
 
     nodo = (type_real *) malloc(lbin*sizeof(type_real));
@@ -1391,7 +1470,6 @@ const int binsper)
     }
     ////////////////////////////////////////////////////////////////////////////////
 
-    ////////////////////////////////////////////////////////////////////////////////
     r = 0.0f;
     for(idim=0;idim<3;idim++)
     {
@@ -1405,8 +1483,15 @@ const int binsper)
     r = sqrt(r);
 
     for(idim=0;idim<3;idim++)
-    {
       vdir[idim] *= (1/r); // directo
+
+    /*
+    #ifdef CALCULA_MEDIA
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    for(idim=0;idim<3;idim++)
+    {
       Pos_cent[idim] = Gr[Seg[i].list[0]].Pos[idim] - (type_real)(lbin-1)*rsep*vdir[idim];
       #ifdef PERIODIC
       Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
@@ -1437,13 +1522,16 @@ const int binsper)
  
     assert(l==lbin);
 
-    for(bin=0;bin<ncil;bin++)
+    for(l=0;l<ncil;l++)
     {
-      Vmean[bin]        *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
-      Vmean[bin+ncil]   *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
-      Vmean[bin+2*ncil] *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+      Vmean[l]        *= (npart[l]>0 ? 1.0f/(type_real)npart[l] : 0.0);
+      Vmean[l+ncil]   *= (npart[l]>0 ? 1.0f/(type_real)npart[l] : 0.0);
+      Vmean[l+2*ncil] *= (npart[l]>0 ? 1.0f/(type_real)npart[l] : 0.0);
     }
     ////////////////////////////////////////////////////////////////////////////////
+
+    #endif
+    */
 
     l = 0;
     for(idim=0;idim<3;idim++)
@@ -1593,7 +1681,7 @@ const int binsper)
 
     ////////////////////////////////////////////////////////////////////////////////
     l = 0;
-    memset(Vmean,0.0,3*ncil*sizeof(type_real));
+    //memset(Vmean,0.0,3*ncil*sizeof(type_real));
     memset(npart,0,ncil*sizeof(int));
     nodo = (type_real *) malloc(lbin*sizeof(type_real));
     vmean_par = (type_real *) malloc(ncil*sizeof(type_real));
@@ -1612,7 +1700,6 @@ const int binsper)
     }
     ////////////////////////////////////////////////////////////////////////////////
 
-    ////////////////////////////////////////////////////////////////////////////////
     r = 0.0f;
     for(idim=0;idim<3;idim++)
     {
@@ -1626,9 +1713,19 @@ const int binsper)
     r = sqrt(r);
 
     for(idim=0;idim<3;idim++)
-    {
       vdir[idim] *= (1/r); // reversa
+
+    /*
+    #ifdef CALCULA_MEDIA
+
+    ////////////////////////////////////////////////////////////////////////////////
+    for(idim=0;idim<3;idim++)
+    {
       Pos_cent[idim] = Gr[Seg[i].list[Seg[i].size-1]].Pos[idim];
+      #ifdef PERIODIC
+      Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
+      Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
+      #endif
     }
     ///////////////////////////////////////////////////////////////////////////////
 
@@ -1652,15 +1749,18 @@ const int binsper)
 
     assert(l==lbin);
 
-    for(bin=0;bin<ncil;bin++)
+    for(l=0;l<ncil;l++)
     {
-      Vmean[bin]        *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
-      Vmean[bin+ncil]   *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
-      Vmean[bin+2*ncil] *= (npart[bin]>0 ? 1.0f/(type_real)npart[bin] : 0.0);
+      Vmean[l]        *= (npart[l]>0 ? 1.0f/(type_real)npart[l] : 0.0);
+      Vmean[l+ncil]   *= (npart[l]>0 ? 1.0f/(type_real)npart[l] : 0.0);
+      Vmean[l+2*ncil] *= (npart[l]>0 ? 1.0f/(type_real)npart[l] : 0.0);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    
+   
+    #endif
+    */
+
     l = 0;
     for(idim=0;idim<3;idim++)
       Pos_cent[idim] = Gr[Seg[i].list[Seg[i].size-1]].Pos[idim];
@@ -1791,9 +1891,64 @@ const int binsper)
     free(vquad_par);
     free(vmean_perp);
     free(vquad_perp);
-    free(Vmean);  
+    //free(Vmean);  
     free(volinv);
     free(npart);
   }
+
+#endif
+
+#ifdef VEL_RELATIVA
+
+void relativa_write(int NNN, type_real *fof)
+{
+  int i, idim;
+  type_real vdir[3];
+  type_real r;
+  FILE *pfrela;
+  char filename[200], name[200];
+
+  BLUE("******************************\n");
+
+  sprintf(filename,"Escribe el archivo para calcular las velocidades relativas\n");GREEN(filename);
+
+  set_name(name,NNN,"vrelativa");
+  sprintf(filename,"../%.2d_%s_%.2f_%.2f.bin",snap.num,name,fof[0],fof[1]);
+  pfrela = fopen(filename,"w");
+  fwrite(&cp.nseg,sizeof(int),1,pfrela);        
+ 
+  ///////////////////////////////////////////////////////
+  
+  for(i=0;i<cp.nseg;i++)
+  {
+    r = 0.0f;
+    for(idim=0;idim<3;idim++)
+    {
+      vdir[idim] = Gr[Seg[i].list[Seg[i].size-1]].Pos[idim]-Gr[Seg[i].list[0]].Pos[idim];    
+      #ifdef PERIODIC
+      if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
+      if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
+      #endif
+      r += vdir[idim]*vdir[idim];
+    }
+    r = sqrt(r);
+
+    for(idim=0;idim<3;idim++)
+      vdir[idim] *= (1.0/r);
+
+    fwrite(&i,sizeof(int),1,pfrela);
+    fwrite(&Seg[i].flag,sizeof(int),1,pfrela);    
+    fwrite(&Gr[Seg[i].list[0]].Vnod[0],sizeof(type_real),3,pfrela);
+    fwrite(&Gr[Seg[i].list[Seg[i].size-1]].Vnod[0],sizeof(type_real),3,pfrela);
+    fwrite(&vdir[0],sizeof(type_real),3,pfrela);
+
+  } //FINALIZA EL PARALELO
+
+  fclose(pfrela);
+
+  ///////////////////////////////////////////////////////
+
+  BLUE("******************************\n");
+}
 
 #endif

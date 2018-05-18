@@ -9,6 +9,9 @@ EXTRAS += -DSTORE_IDS
 EXTRAS += -DCALCULA_MEDIA
 EXTRAS += -DHUECOS
 EXTRAS += -DEXTEND
+#EXTRAS += -DFIXED_SEPARATION
+#EXTRAS += -DVEL_RELATIVA
+#EXTRAS += -DREORDER
 #EXTRAS += -DBIN_LOG
 #EXTRAS += -DSAVEPART
 #EXTRAS += -DMCRITIC
@@ -17,7 +20,7 @@ EXTRAS += -DEXTEND
 CC     := $(OMPP) gcc $(DOMPP)
 DC     := -DNTHREADS=16
 #DC     += -DLOCK
-CFLAGS := -Wall -O3 -fopenmp -g
+CFLAGS := -Wall -O3 -fopenmp -march=native -g
 #GSLL   := -lgsl -lgslcblas
 LIBS   := -lm
 

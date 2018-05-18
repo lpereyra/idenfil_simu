@@ -6,6 +6,9 @@ void lee(char *filename, struct particle_data *Q, int *ind);
 void read_gadget();
 void read_segment(int NNN, type_real *fof);
 void read_grup_fof(type_real *fof);
+#ifdef VEL_RELATIVA
+  void grupos_fof(type_real *fof);
+#endif
 
 type_real pmin[3], pmax[3];
 

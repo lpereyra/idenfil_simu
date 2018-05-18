@@ -8,7 +8,6 @@
 #include "leesnap.h"
 #include "colores.h"
 
-int    ngrup;
 struct io_header header;
 struct particle_data *P;
 struct grup_data *Gr;
@@ -71,7 +70,7 @@ void leeheader(char *filename){
   assert(d1==d2);
   fclose(pf);
 
-  /* Definicion estructura cosmoparam */
+  // Definicion estructura cosmoparam //
   cp.omegam    = header.Omega0;
   cp.omegal    = header.OmegaLambda;
   cp.omegak    = 1.0 - cp.omegam - cp.omegal;
@@ -203,7 +202,8 @@ void lee(char *filename, struct particle_data *Q, int *ind){
   fclose(pf);
 }
 
-void change_positions(int n){
+void change_positions(int n)
+{
   int ip, idim;
 
   RED("Inicio Change Positions\n");
@@ -281,18 +281,18 @@ void select_particles_fof(type_real prefix)
   j = 0;
   for(i=0;i<len;i++)
   {   
-    fread(&k,sizeof(int),1,pfin);
+    //fread(&k,sizeof(int),1,pfin);
     fread(&id,sizeof(int),1,pfin); 
-
-    assert(id==k); // debe coincidir
-
+    //assert(id==k); // debe coincidir en las versiones nuevas
+   
     fread(&k,sizeof(int),1,pfin);
-
+    
     j+=k;
     while(k!=0)
     {
       fread(&idv,sizeof(int),1,pfin);
       P[index[idv]].sub = id;
+      //fprintf(stdout,"%d ",idv);
       k--;
     }
   }
@@ -319,14 +319,14 @@ void read_grup_fof(type_real prefix)
   sprintf(filename,"%s%.2d_%.2f_centros.bin",snap.root,snap.num,prefix);
   pfin = fopen(filename,"rb"); 
 
-  fread(&ngrup,sizeof(int),1,pfin);
-  Gr = (struct grup_data *) malloc(ngrup*sizeof(struct grup_data));
+  fread(&cp.ngrup,sizeof(int),1,pfin);
+  Gr = (struct grup_data *) malloc(cp.ngrup*sizeof(struct grup_data));
 
   #ifdef MCRITIC
 
     j = 0;
 
-    for(i=0;i<ngrup;i++)
+    for(i=0;i<cp.ngrup;i++)
     {
       fread(&Gr[j].save,sizeof(int),1,pfin);
       fread(&Gr[j].id,sizeof(type_int),1,pfin);
@@ -338,40 +338,38 @@ void read_grup_fof(type_real prefix)
       cut = Gr[j].NumPart*cp.Mpart; // Num de particulas por la Masa de la particula [10^10 Msol/h]
       if(cut<m_critica) continue;
 
-
       j++;
+    }
 
-     }
+    if(j==cp.ngrup)
+    {
+      fprintf(stdout,"Grupos %d menores a mcrit %g\n",j-cp.ngrup,m_critica*1.e10);
+      RED("NO DEBERIA ESCRIBIR NINGUN ARCHIVO\n");
+    }
 
-     if(j==ngrup)
-     {
-       fprintf(stdout,"Grupos %d menores a mcrit %g\n",j-ngrup,m_critica*1.e10);
-       RED("NO DEBERIA ESCRIBIR NINGUN ARCHIVO\n");
-     }
+    cp.ngrup = j; // reasigna el num de grupos
+    Gr = (struct grup_data *) realloc(Gr,cp.ngrup*sizeof(struct grup_data));
+    sprintf(filename,"%.2d_%.2f_centros_cut_%.2f.bin",snap.num,prefix,m_critica);
+    pfout = fopen(filename,"w");
+    fwrite(&cp.ngrup,sizeof(int),1,pfout);
 
-     ngrup = j; // reasigna el num de grupos
-     Gr = (struct grup_data *) realloc(Gr,ngrup*sizeof(struct grup_data));
-     sprintf(filename,"%.2d_%.2f_centros_cut_%.2f.bin",snap.num,prefix,m_critica);
-     pfout = fopen(filename,"w");
-     fwrite(&ngrup,sizeof(int),1,pfout);
+    for(i=0;i<cp.ngrup;i++)
+    {
+      fwrite(&Gr[i].save,sizeof(int),1,pfout);
+      fwrite(&Gr[i].id,sizeof(type_int),1,pfout);
+      fwrite(&Gr[i].Pos[0],sizeof(type_real),1,pfout);
+      fwrite(&Gr[i].Pos[1],sizeof(type_real),1,pfout);
+      fwrite(&Gr[i].Pos[2],sizeof(type_real),1,pfout);
+      fwrite(&Gr[i].NumPart,sizeof(int),1,pfout);
+    }
 
-     for(i=0;i<ngrup;i++)
-     {
-       fwrite(&Gr[i].save,sizeof(int),1,pfout);
-       fwrite(&Gr[i].id,sizeof(type_int),1,pfout);
-       fwrite(&Gr[i].Pos[0],sizeof(type_real),1,pfout);
-       fwrite(&Gr[i].Pos[1],sizeof(type_real),1,pfout);
-       fwrite(&Gr[i].Pos[2],sizeof(type_real),1,pfout);
-       fwrite(&Gr[i].NumPart,sizeof(int),1,pfout);
-     }
+    fclose(pfout);
 
-     fclose(pfout);
-
-     fprintf(stdout,"Grupos %d mayores a mcrit %g\n",ngrup,m_critica*1.e10);
+    fprintf(stdout,"Grupos %d mayores a mcrit %g\n",cp.ngrup,m_critica*1.e10);
       
   #else
 
-    for(i=0;i<ngrup;i++)
+    for(i=0;i<cp.ngrup;i++)
     {
       fread(&Gr[i].save,sizeof(int),1,pfin);
       fread(&Gr[i].id,sizeof(type_int),1,pfin);
@@ -381,7 +379,7 @@ void read_grup_fof(type_real prefix)
       fread(&Gr[i].NumPart,sizeof(int),1,pfin);
     }
 
-    fprintf(stdout,"Grupos %d\n",ngrup);
+    fprintf(stdout,"Grupos %d\n",cp.ngrup);
  
   #endif
 

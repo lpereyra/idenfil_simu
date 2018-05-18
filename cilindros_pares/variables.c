@@ -78,11 +78,37 @@ void init_variables(int argc, char **argv){
     exit(0);
   }
 
-  if(!fscanf(pfin,"%d  \n",&ncil))
-  {
-    sprintf(message,"can't read file `%s`\nneed Ncil\n",filename);RED(message);
-    exit(0);
-  }
+  #ifdef FIXED_SEPARATION
+
+    #ifdef PRECDOUBLE
+    if(!fscanf(pfin,"%lf  \n",&RLEN))
+    #else
+    if(!fscanf(pfin,"%f   \n",&RLEN))
+    #endif
+    {
+      sprintf(message,"can't read file `%s`\n LEN MAX\n",filename);RED(message);
+      exit(0);
+    }
+ 
+    #ifdef PRECDOUBLE
+    if(!fscanf(pfin,"%lf  \n",&RSEP))
+    #else
+    if(!fscanf(pfin,"%f   \n",&RSEP))
+    #endif
+    {
+      sprintf(message,"can't read file `%s`\n SEP MAX\n",filename);RED(message);
+      exit(0);
+    }
+
+  #else
+
+    if(!fscanf(pfin,"%d  \n",&ncil))
+    {
+      sprintf(message,"can't read file `%s`\nneed Ncil\n",filename);RED(message);
+      exit(0);
+    }
+
+  #endif
 
   #ifdef MCRITIC
 
@@ -125,14 +151,27 @@ void init_variables(int argc, char **argv){
      fof[i] = cbrt(1./(1.+fof[i]));
   }
   sprintf(message,"Num bins:               %d\n",nbins);BLUE(message);
-  sprintf(message,"Num cylindres:          %d\n",ncil);BLUE(message);
-  #ifdef EXTEND
-    RED("EXTEND\n");
+  #ifdef FIXED_SEPARATION
+    RED("FIXED SEPARATION\n");
+    sprintf(message,"RLEN                %f Mpc\n",RLEN);BLUE(message);
+    sprintf(message,"RSEP                %f Mpc\n",RSEP);BLUE(message);
+  #else
+    sprintf(message,"Num cylindres:          %d\n",ncil);BLUE(message);
+  #endif
+
+  #ifdef VEL_RELATIVA
+    RED("CREA ARCHIVO PARA VELOCIDADES RELATIVAS\n");
   #endif
   #ifdef BIN_LOG
     RED("BIN LOG\n");
   #else
     RED("BIN LIN\n");
+  #endif
+  #ifdef EXTEND
+    RED("EXTEND\n");
+  #endif
+  #ifdef REORDER
+    RED("REORDER\n");
   #endif
 
   #ifdef MCRITIC
@@ -157,9 +196,6 @@ void init_variables(int argc, char **argv){
   #endif
   #ifdef STORE_VELOCITIES
   BLUE("  STORE_VELOCITIES\n");
-  #endif
-  #ifdef LOCK
-  BLUE("  USING LOCKS\n");
   #endif
 
   GREEN("END\n");

@@ -24,15 +24,14 @@ void grid_init(void)
 
 void grid_build(void)
 {
-  int i;
-  unsigned long ix, iy, iz;
+  unsigned long i, ix, iy, iz;
   double fac;
 	unsigned long ibox;
 
   fac = (double)grid.ngrid/(double)cp.lbox ;
 	printf("Building Grid..... Ngrid = %lu\n",grid.ngrid);
 
-  for( i = 0 ; i < (int)grid.nobj ; i++ )
+  for( i = 0 ; i < grid.nobj ; i++ )
   {
 
     if(grid.step!=0 && P[i].sub==0) continue;

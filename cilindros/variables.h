@@ -57,6 +57,9 @@ struct grup_data
   int        save;
   int        id;
   type_real  Pos[3];
+  #ifdef VEL_RELATIVA
+  type_real  Vnod[3];
+  #endif
   int        NumPart;
   int        *list;
 } *Gr;
@@ -67,6 +70,10 @@ int  nfrac;
 int  nbins;
 int  ncil;
 type_real *fof;
+#ifdef FIXED_SEPARATION
+type_real RLEN;
+type_real RSEP;
+#endif
 #ifdef MCRITIC
 type_real m_critica;
 #endif
