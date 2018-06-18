@@ -24,15 +24,15 @@ extern void grid_init(void)
 
 }
 
-inline unsigned long igrid(const long ix, const long iy, const long iz, const unsigned long ngrid)
+inline unsigned long igrid(const long ix, const long iy, const long iz, const long ngrid)
 {
   return (ix * ngrid + iy) * ngrid + iz;
 }
 
 extern void grid_build(void)
 {
-  const unsigned long nalloc = grid.ngrid*grid.ngrid*grid.ngrid;
-  unsigned long i, j, ix, iy, iz, ibox;
+  const long nalloc = grid.ngrid*grid.ngrid*grid.ngrid;
+  long i, j, ix, iy, iz, ibox;
   type_int *Id;
   double fac;
 
@@ -43,12 +43,24 @@ extern void grid_build(void)
 
   for(i = 0; i < grid.nobj; i++)
   {
-    ix = (unsigned long)((double)P.x[i]*fac);
-    iy = (unsigned long)((double)P.y[i]*fac);
-    iz = (unsigned long)((double)P.z[i]*fac);
+    ix = (long)((double)P.x[i]*fac);
+    iy = (long)((double)P.y[i]*fac);
+    iz = (long)((double)P.z[i]*fac);
 
-    ibox = igrid(ix,iy,iz,grid.ngrid);
-      
+    #ifdef PERIODIC
+      ibox = igrid(( (ix >= (long)grid.ngrid) ? ix-(long)grid.ngrid : ( (ix<0) ? ix + (long)grid.ngrid : ix ) ),\
+                   ( (iy >= (long)grid.ngrid) ? iy-(long)grid.ngrid : ( (iy<0) ? iy + (long)grid.ngrid : iy ) ),\
+                   ( (iz >= (long)grid.ngrid) ? iz-(long)grid.ngrid : ( (iz<0) ? iz + (long)grid.ngrid : iz ) ),\
+                   (long)grid.ngrid);
+    #else
+      ibox = igrid(( (ix >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (ix<0) ? 0 : ix ) ),\
+                   ( (iy >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (iy<0) ? 0 : iy ) ),\
+                   ( (iz >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (iz<0) ? 0 : iz ) ),\
+                   (long)grid.ngrid);
+    #endif
+
+    assert(ibox<nalloc);
+
     Id[i] = grid.icell[ibox];
     grid.icell[ibox] = i;
   }
@@ -134,11 +146,22 @@ extern void grid_build(void)
       } // cierra el while
     }  // cierra el if
 
-    ix = (unsigned long)((double)P.x[i]*fac);
-    iy = (unsigned long)((double)P.y[i]*fac);
-    iz = (unsigned long)((double)P.z[i]*fac);
+    ix = (long)((double)P.x[i]*fac);
+    iy = (long)((double)P.y[i]*fac);
+    iz = (long)((double)P.z[i]*fac);
 
-    ibox = igrid(ix,iy,iz,grid.ngrid);
+    #ifdef PERIODIC
+      ibox = igrid(( (ix >= (long)grid.ngrid) ? ix-(long)grid.ngrid : ( (ix<0) ? ix + (long)grid.ngrid : ix ) ),\
+                   ( (iy >= (long)grid.ngrid) ? iy-(long)grid.ngrid : ( (iy<0) ? iy + (long)grid.ngrid : iy ) ),\
+                   ( (iz >= (long)grid.ngrid) ? iz-(long)grid.ngrid : ( (iz<0) ? iz + (long)grid.ngrid : iz ) ),\
+                   (long)grid.ngrid);
+    #else
+      ibox = igrid(( (ix >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (ix<0) ? 0 : ix ) ),\
+                   ( (iy >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (iy<0) ? 0 : iy ) ),\
+                   ( (iz >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (iz<0) ? 0 : iz ) ),\
+                   (long)grid.ngrid);
+    #endif
+
     if(grid.size[ibox]==0) grid.icell[ibox] = i;
     grid.size[ibox]++;
 

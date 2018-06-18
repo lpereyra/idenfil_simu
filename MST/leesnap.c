@@ -32,7 +32,7 @@ void read_gadget(void)
 
   /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
   total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
-  printf("Allocating %.5zu Gb for %d particles\n",total_memory,cp.npart);
+  printf("Allocating %.5zu Gb for %u particles\n",total_memory,cp.npart);
   P = (struct particle_data *) malloc(cp.npart*sizeof(struct particle_data));
   Index = (type_int *) malloc((cp.npart+1)*sizeof(type_int)); // por si los id arrancan en 1
   assert(P != NULL);
@@ -226,9 +226,9 @@ void select_particles_fof(type_real prefix)
   for(i=0;i<len;i++)
   {  
     // tengo que comentar esta linea y el assert para las viejas versiones
-    //fread(&k,sizeof(int),1,pfin); 
+    fread(&k,sizeof(int),1,pfin); 
     fread(&id,sizeof(int),1,pfin); 
-    //assert(id==k); // debe coincidir en las versiones nuevas
+    assert(id==k); // debe coincidir en las versiones nuevas
    
     fread(&k,sizeof(int),1,pfin);
 

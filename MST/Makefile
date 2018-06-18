@@ -2,7 +2,7 @@
 EXTRAS += -DPERIODIC    #periodic boundary condition
 #EXTRAS += -DPRECDOUBLE   #Pos and vel in double precision
 #EXTRAS += -DLONGIDS           #IDs are long integer
-#EXTRAS += -DMPC                #Positions in simulation Mpc/h
+EXTRAS += -DMPC                #Positions in simulation Mpc/h
 EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 EXTRAS += -DSTORE_VELOCITIES
 EXTRAS += -DSTORE_IDS
@@ -12,7 +12,7 @@ EXTRAS += -DSORT_DERECHA
 
 #CC
 CC     := $(OMPP) g++ $(DOMPP)
-DC     := -DNTHREADS=16
+DC     := -DNTHREADS=32
 #DC     += -DLOCK
 CFLAGS := -Wall -O3 -fopenmp -g
 #GSLL   := -lgsl -lgslcblas

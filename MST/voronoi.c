@@ -37,6 +37,7 @@ void Voronoi_Grupos(type_real fof, std::vector<std::pair<type_real,std::pair<typ
   ///////////////////////////////////////////
 
   init_edges(pares);
+  fprintf(stdout,"Npares %lu\n",pares.size());
 
   ///////////////////////////////////////////
  
@@ -219,7 +220,6 @@ void init_edges(std::vector<std::pair<type_int,type_int> > &pares)
   return;
 }
 
-//if(inside_fof(fof,id,r0,r0_2,r,vdir)==0) continue; 
 type_int inside_fof(const type_int id, const type_real r0, const type_real r0_2, const type_real r, const type_real vdir[])
 {
    type_int  c;

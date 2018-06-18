@@ -115,23 +115,11 @@ static void busv(const type_int ic, type_int * restrict test)
   iyc  = (long)(P.y[ic]*(type_real)grid.ngrid*(1.f/cp.lbox));
   izc  = (long)(P.z[ic]*(type_real)grid.ngrid*(1.f/cp.lbox));
 
-  #ifndef PERIODIC
-    for(long ixx = (ixc-1<0) ? 0 : ixc-1; ixx <= (ixc+1 >= grid.ngrid) ? grid.ngrid-1 : ixc+1; ixx++)
-  #else
-    for(long ixx = ixc-1; ixx <= ixc+1; ixx++)
-  #endif
+  for(long ixx = ixc-1; ixx <= ixc+1; ixx++)
   {
-    #ifndef PERIODIC
-      for(long iyy = (iyc-1<0) ? 0 : iyc-1; iyy <= (iyc+1 >= grid.ngrid) ? grid.ngrid-1 : iyc+1; iyy++)
-    #else
-      for(long iyy = iyc-1 ; iyy <= iyc+1 ; iyy++)
-    #endif
+    for(long iyy = iyc-1 ; iyy <= iyc+1 ; iyy++)
     {
-      #ifndef PERIODIC
-        for(long izz = (izc-1<0) ? 0 : izc-1; izz <= (izc+1 >= grid.ngrid) ? grid.ngrid-1 : izc+1; izz++)
-      #else
-        for(long izz = izc-1 ; izz <= izc+1 ; izz++)
-      #endif
+      for(long izz = izc-1 ; izz <= izc+1 ; izz++)
       {
 
       	#ifdef PERIODIC
@@ -140,45 +128,42 @@ static void busv(const type_int ic, type_int * restrict test)
                        ( (izz >= (long)grid.ngrid) ? izz-(long)grid.ngrid : ( (izz<0) ? izz + (long)grid.ngrid : izz ) ),\
                        (long)grid.ngrid);
         #else
-          ibox = igrid(ixx,iyy,izz,(long)grid.ngrid);
+          ibox = igrid(( (ixx >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (ixx<0) ? 0 : ixx ) ),\
+                   ( (iyy >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (iyy<0) ? 0 : iyy ) ),\
+                   ( (izz >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (izz<0) ? 0 : izz ) ),\
+                   (long)grid.ngrid);
         #endif
 
-          for(i=grid.icell[ibox];i<grid.icell[ibox]+grid.size[ibox];i++)
+        for(i=grid.icell[ibox];i<grid.icell[ibox]+grid.size[ibox];i++)
+        {
+          if(!TestBit(test,i))
           {
 
-            #ifdef IDENSUB
-            if(P[i].sub != P[ic].sub)
-              continue;
+            xx = P.x[i] - P.x[ic];
+            yy = P.y[i] - P.y[ic];
+            zz = P.z[i] - P.z[ic];
+
+            #ifdef PERIODIC
+            xx = ( xx >  cp.lbox*0.5f ) ? xx - cp.lbox : xx ;
+            yy = ( yy >  cp.lbox*0.5f ) ? yy - cp.lbox : yy ;
+            zz = ( zz >  cp.lbox*0.5f ) ? zz - cp.lbox : zz ;
+            xx = ( xx < -cp.lbox*0.5f ) ? xx + cp.lbox : xx ;
+            yy = ( yy < -cp.lbox*0.5f ) ? yy + cp.lbox : yy ;
+            zz = ( zz < -cp.lbox*0.5f ) ? zz + cp.lbox : zz ;
             #endif
 
-            if(!TestBit(test,i))
+            for(niv=0;niv<nfrac;niv++)
             {
-
-        	    xx = P.x[i] - P.x[ic];
-              yy = P.y[i] - P.y[ic];
-              zz = P.z[i] - P.z[ic];
-
-              #ifdef PERIODIC
-              xx = ( xx >  cp.lbox*0.5f ) ? xx - cp.lbox : xx ;
-              yy = ( yy >  cp.lbox*0.5f ) ? yy - cp.lbox : yy ;
-              zz = ( zz >  cp.lbox*0.5f ) ? zz - cp.lbox : zz ;
-              xx = ( xx < -cp.lbox*0.5f ) ? xx + cp.lbox : xx ;
-              yy = ( yy < -cp.lbox*0.5f ) ? yy + cp.lbox : yy ;
-              zz = ( zz < -cp.lbox*0.5f ) ? zz + cp.lbox : zz ;
-              #endif
-
-              for(niv=0;niv<nfrac;niv++)
+      	      if(xx*xx + yy*yy + zz*zz < iden.r0[niv])
               {
-      	        if(xx*xx + yy*yy + zz*zz < iden.r0[niv])
-                {
-	                #ifdef LOCK
-                    Unir(ic,i,gr[niv],lock);
-                  #else
-                    Unir(ic,i,gr[niv]);
-                  #endif
-                }
+	              #ifdef LOCK
+                  Unir(ic,i,gr[niv],lock);
+                #else
+                  Unir(ic,i,gr[niv]);
+                #endif
               }
-              
+            }
+            
           } // cierra el if
 
         } /*fin lazo particulas del grid*/
@@ -419,10 +404,7 @@ extern void identification(void)
   }
 
   for(i=0;i<nfrac;i++)
-  {
-    iden.r0[i] += 1.e-06; // LE PONGO UN GAP
     iden.r0[i] *= iden.r0[i];
-  }
 
   #ifdef NTHREADS
   omp_set_dynamic(0);
