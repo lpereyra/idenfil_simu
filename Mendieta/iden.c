@@ -319,9 +319,18 @@ static void Write_Groups(type_int niv)
     zc += pmin[2]; //
          
     #ifdef PERIODIC
-    xc = xc<0 ? cp.lbox+(float)fmod(xc,cp.lbox) : (float)fmod(xc,cp.lbox);
-    yc = yc<0 ? cp.lbox+(float)fmod(yc,cp.lbox) : (float)fmod(yc,cp.lbox);
-    zc = zc<0 ? cp.lbox+(float)fmod(zc,cp.lbox) : (float)fmod(zc,cp.lbox);
+    xc = xc<0.0f     ? cp.lbox+xc : xc;
+    yc = yc<0.0f     ? cp.lbox+yc : yc;
+    zc = zc<0.0f     ? cp.lbox+zc : zc;
+
+    xc = xc>=cp.lbox ? xc-cp.lbox : xc;
+    yc = yc>=cp.lbox ? yc-cp.lbox : yc;
+    zc = zc>=cp.lbox ? zc-cp.lbox : zc;
+
+
+    //xc = xc<0 ? cp.lbox+(float)fmod(xc,cp.lbox) : (float)fmod(xc,cp.lbox);
+    //yc = yc<0 ? cp.lbox+(float)fmod(yc,cp.lbox) : (float)fmod(yc,cp.lbox);
+    //zc = zc<0 ? cp.lbox+(float)fmod(zc,cp.lbox) : (float)fmod(zc,cp.lbox);
     #endif
 
     fwrite(&save_sub,sizeof(type_int),1,pfcentros);
