@@ -1,12 +1,12 @@
 #ifndef KRUSKAL 
 #define KRUSKAL 
 
-int  Root(int i, int *Padre);
-void DLU(int id, int pre, std::vector<std::vector<int> > &adj, int *Padre, int *Rank);
-void DL(std::vector<std::vector<int> > &vec, int *Padre, int *Rank);
-bool DFS(int i, std::vector<std::vector<int> > &vec, int cut);
-void Delete_Branch(int i, std::vector<std::vector<int> > &vec);
-void Podado(int level, std::vector<std::vector<int> > &vec);
-void Kruskal(int *Padre, int *Rank, std::vector<std::pair<type_real,std::pair<int,int> > > &edges, std::vector<std::vector<int> > &adjacency_list);
+type_int Root(type_int i, type_int *Padre);
+void DLU(const type_int id, const type_int pre, std::vector<std::vector<type_int> > &adj, type_int *Padre, type_int *Rank);
+void DL(std::vector<std::vector<type_int> > &vec, type_int *Padre, type_int *Rank);
+type_int DFS(type_int i, std::vector<std::vector<type_int> > &vec, type_int cut);
+void Delete_Branch(const type_int i, std::vector<std::vector<type_int> > &vec);
+void Podado(type_int level, std::vector<std::vector<type_int> > &vec);
+void Kruskal(type_int *Padre, type_int *Rank, std::vector<std::pair<type_real,std::pair<type_int,type_int> > > &edges, std::vector<std::vector<type_int> > &adjacency_list);
 
 #endif

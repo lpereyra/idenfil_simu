@@ -7,10 +7,10 @@
 #include "leesnap.h"
 #include "colores.h"
 
-void init_variables(int argc, char **argv){
+extern void init_variables(int argc, char **argv){
   FILE *pfin;
   char filename[200];
-  int  i;
+  type_int  i;
 
   RED("Initializing variables...\n");
 
@@ -173,6 +173,9 @@ void init_variables(int argc, char **argv){
   #ifdef REORDER
     RED("REORDER\n");
   #endif
+  #ifdef COLUMN
+    RED("COLUMN\n");
+  #endif
 
   #ifdef MCRITIC
   sprintf(message,"M_CRIT [10^10 Msol / h]  %f\n",m_critica);RED(message);
@@ -188,8 +191,8 @@ void init_variables(int argc, char **argv){
   #ifdef LONGIDS
   BLUE("  LONGIDS\n");
   #endif
-  #ifdef MPC
-  sprintf(message,"  POSFACTOR = 1000.\n");BLUE(message);
+  #ifdef POSFACTOR
+  sprintf(message,"  POSFACTOR = %f\n",POSFACTOR);BLUE(message);
   #endif
   #ifdef VELFACTOR
   sprintf(message,"  VELFACTOR = %f\n",VELFACTOR);BLUE(message);
@@ -200,3 +203,63 @@ void init_variables(int argc, char **argv){
 
   GREEN("END\n");
 }
+
+#ifdef COLUMN
+
+extern int allocate_particles(const type_int size)
+{
+
+  P.x  = (type_real *) malloc(size*sizeof(type_real));
+  P.y  = (type_real *) malloc(size*sizeof(type_real));
+  P.z  = (type_real *) malloc(size*sizeof(type_real));
+  #ifdef STORE_VELOCITIES
+  P.vx = (type_real *) malloc(size*sizeof(type_real));
+  P.vy = (type_real *) malloc(size*sizeof(type_real));
+  P.vz = (type_real *) malloc(size*sizeof(type_real));
+  #endif
+  #ifdef STORE_IDS
+  P.id = (type_int  *) malloc(size*sizeof(type_int));
+  #endif
+  //P.gr = (type_int  *) malloc(size*sizeof(type_int));
+  
+  if(!P.x || !P.y || !P.z) 
+  {
+    fprintf(stderr, "cannot allocate pos particles\n" );
+    return(0);
+  }
+
+  #ifdef STORE_VELOCITIES
+  if(!P.vx || !P.vy || !P.vz) 
+  {
+    fprintf(stderr, "cannot allocate vel particles\n" );
+    return(0);
+  }
+  #endif
+
+  #ifdef STORE_IDS
+  if(!P.id) 
+  {
+    fprintf(stderr, "cannot allocate ids particles\n" );
+    return(0);
+  }
+  #endif
+
+  return ( 1 );
+}
+
+extern void free_particles( void )
+{
+  if(P.x)  free(P.x);
+  if(P.y)  free(P.y);
+  if(P.z)  free(P.z);
+  #ifdef STORE_VELOCITIES
+  if(P.vx) free(P.vx);
+  if(P.vy) free(P.vy);
+  if(P.vz) free(P.vz);
+  #endif   
+  #ifdef STORE_IDS
+  if(P.id) free(P.id);
+  #endif   
+}
+
+#endif

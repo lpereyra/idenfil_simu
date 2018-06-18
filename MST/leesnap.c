@@ -10,6 +10,7 @@
 
 struct io_header header;
 struct particle_data *P;
+type_int *Index;
 struct grup_data *Gr;
 type_real pmin[3], pmax[3];
 
@@ -33,6 +34,7 @@ void read_gadget(void)
   total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
   printf("Allocating %.5zu Gb for %d particles\n",total_memory,cp.npart);
   P = (struct particle_data *) malloc(cp.npart*sizeof(struct particle_data));
+  Index = (type_int *) malloc((cp.npart+1)*sizeof(type_int)); // por si los id arrancan en 1
   assert(P != NULL);
 
   #ifdef MPC
@@ -56,7 +58,7 @@ void read_gadget(void)
 
 void leeheader(char *filename){
   FILE *pf;
-  int d1,d2;
+  type_int d1,d2;
 
   pf = fopen(filename,"r");
   if(pf == NULL){
@@ -70,7 +72,7 @@ void leeheader(char *filename){
   assert(d1==d2);
   fclose(pf);
 
-  // Definicion estructura cosmoparam //
+  // Definicion estructura cosmoparam
   cp.omegam    = header.Omega0;
   cp.omegal    = header.OmegaLambda;
   cp.omegak    = 1.0 - cp.omegam - cp.omegal;
@@ -91,7 +93,7 @@ void leeheader(char *filename){
   printf("*********************************** \n");
   printf("*   Parametros de la simulacion   * \n");
   printf("*********************************** \n");
-  printf("  Numero de particulas = %d \n", cp.npart);
+  printf("  Numero de particulas = %u \n", cp.npart);
   printf("  Lado del box = %g \n", cp.lbox);
   printf("  Redshift = %g \n", cp.redshift);
   printf("  Omega Materia = %g \n", cp.omegam);
@@ -105,16 +107,20 @@ void leeheader(char *filename){
 
 void lee(char *filename, struct particle_data *Q, int *ind){
   FILE *pf;
-  int d1, d2;
-  int k, pc, n;
+  type_int d1, d2;
+  type_int k, pc, n;
   #ifdef MPC
   type_real POSFACTOR = 1000.;
   #endif
 
-  type_real r[3],v[3];
   type_int id;
+  type_real r[3];
+  #ifdef STORE_VELOCITIES
+  type_real v[3];
+  #endif
 
-  for(k = 0; k < 3; k++){
+  for(k = 0; k < 3; k++)
+  {
     pmin[k] = 1.E26; 
     pmax[k] = -1.E26;
   }
@@ -181,19 +187,17 @@ void lee(char *filename, struct particle_data *Q, int *ind){
   assert(d1==d2);
 
   fread(&d1, sizeof(d1), 1, pf);
-#ifdef STORE_IDS
   for(k = 0, pc = 0; k < N_part_types; k++){
     for(n = 0; n < header.npart[k]; n++){
       fread(&id, size_int, 1, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        Q[*ind+pc].id = id;
+        //Q[*ind+pc].id = id;
+        Index[id] = *ind+pc;
+        Q[*ind+pc].sub = 0;
         pc++;
       }
     }
   }
-#else
-  fseek(pf,d1,SEEK_CUR);
-#endif
   fread(&d2, sizeof(d2), 1, pf);
   assert(d1==d2);
 
@@ -202,72 +206,12 @@ void lee(char *filename, struct particle_data *Q, int *ind){
   fclose(pf);
 }
 
-void change_positions(int n)
-{
-  int ip, idim;
-
-  RED("Inicio Change Positions\n");
-
-  for(idim = 0; idim < 3; idim++){
-    pmin[idim] = 1.E26; 
-    pmax[idim] = -1.E26;
-  }
-
-  for(ip = 0; ip < n; ip++){
-    if(P[ip].Pos[0] > pmax[0]) pmax[0] = P[ip].Pos[0];
-    if(P[ip].Pos[0] < pmin[0]) pmin[0] = P[ip].Pos[0];
-    if(P[ip].Pos[1] > pmax[1]) pmax[1] = P[ip].Pos[1];
-    if(P[ip].Pos[1] < pmin[1]) pmin[1] = P[ip].Pos[1];
-    if(P[ip].Pos[2] > pmax[2]) pmax[2] = P[ip].Pos[2];
-    if(P[ip].Pos[2] < pmin[2]) pmin[2] = P[ip].Pos[2];
-  }
-
-  printf("xmin %.1f xmax %.1f\n",pmin[0],pmax[0]);
-  printf("ymin %.1f ymax %.1f\n",pmin[1],pmax[1]);
-  printf("zmin %.1f zmax %.1f\n",pmin[2],pmax[2]);
-
-  for(ip = 0; ip < n; ip++)
-    for(idim = 0; idim < 3; idim++)
-      P[ip].Pos[idim] -= pmin[idim];
-
-  cp.lbox = pmax[0] - pmin[0];
-  for(idim = 1; idim < 3; idim++)
-    if(cp.lbox < (pmax[idim] - pmin[idim])) cp.lbox = (pmax[idim] - pmin[idim]);
-
-  cp.lbox *= 1.001;
-  fprintf(stdout,"Changing cp.lbox %f....\n",cp.lbox);
-  GREEN("Fin Change Positions\n");
-}
-
-void re_change_positions(int n, struct particle_data *Q){
-  int ip, idim;
-  for(ip = 0; ip < n; ip++)
-    for(idim = 0; idim < 3; idim++)
-      Q[ip].Pos[idim] += pmin[idim];
-}
-
 void select_particles_fof(type_real prefix)
 {
 
   char filename[200];
-  int  i,j,k,id,idv,len;
-  type_int *index;
+  type_int  i,j,k,id,idv,len;
   FILE *pfin;
-
-  #ifdef NTHREADS
-  omp_set_dynamic(0);
-  omp_set_num_threads(NTHREADS);
-  #endif
-
-  index = (type_int *) malloc((cp.npart+1)*sizeof(type_int)); // por si los id arrancan en 1
-
-  #pragma omp parallel for num_threads(NTHREADS) \
-  schedule(static) default(none) private(i) shared(P,index,cp)
-  for(i=0;i<cp.npart;i++)
-  {
-    index[P[i].id] = i;
-    P[i].sub = 0;
-  }
 
   sprintf(snap.root,"../");
   sprintf(filename,"%s%.2d_%.2f_fof.bin",snap.root,snap.num,prefix);
@@ -280,36 +224,53 @@ void select_particles_fof(type_real prefix)
 
   j = 0;
   for(i=0;i<len;i++)
-  {   
-    //fread(&k,sizeof(int),1,pfin);
+  {  
+    // tengo que comentar esta linea y el assert para las viejas versiones
+    //fread(&k,sizeof(int),1,pfin); 
     fread(&id,sizeof(int),1,pfin); 
     //assert(id==k); // debe coincidir en las versiones nuevas
    
     fread(&k,sizeof(int),1,pfin);
-    
+
     j+=k;
     while(k!=0)
     {
       fread(&idv,sizeof(int),1,pfin);
-      P[index[idv]].sub = id;
-      //fprintf(stdout,"%d ",idv);
+      P[Index[idv]].sub = id;
       k--;
     }
   }
 
-  fprintf(stdout,"Grupos %d Part %d\n",i,j);
+  fprintf(stdout,"Grupos %u Part %u\n",i,j);
 
   fclose(pfin);
-  free(index);
+  free(Index);
+
+  j = 0;
+  for(i=0;i<cp.npart;i++)
+  {
+    if(P[i].sub!=0)
+    {
+      P[j] = P[i];
+      j++;
+    }
+  }
+
+  cp.npart = j;
+
+  P = (struct particle_data *) realloc(P,cp.npart*sizeof(struct particle_data));
+
+  fprintf(stdout,"realoc! npart %u\n",cp.npart);
+
 }
 
 void read_grup_fof(type_real prefix)
 {
   char filename[200];
-  int  i;
+  type_int i;
   FILE *pfin;
   #ifdef MCRITIC
-  int j;
+  type_int j;
   FILE *pfout;
   type_real cut;
   #endif
@@ -319,7 +280,7 @@ void read_grup_fof(type_real prefix)
   sprintf(filename,"%s%.2d_%.2f_centros.bin",snap.root,snap.num,prefix);
   pfin = fopen(filename,"rb"); 
 
-  fread(&cp.ngrup,sizeof(int),1,pfin);
+  fread(&cp.ngrup,sizeof(type_int),1,pfin);
   Gr = (struct grup_data *) malloc(cp.ngrup*sizeof(struct grup_data));
 
   #ifdef MCRITIC
@@ -328,12 +289,12 @@ void read_grup_fof(type_real prefix)
 
     for(i=0;i<cp.ngrup;i++)
     {
-      fread(&Gr[j].save,sizeof(int),1,pfin);
+      fread(&Gr[j].save,sizeof(type_int),1,pfin);
       fread(&Gr[j].id,sizeof(type_int),1,pfin);
       fread(&Gr[j].Pos[0],sizeof(type_real),1,pfin);
       fread(&Gr[j].Pos[1],sizeof(type_real),1,pfin);
       fread(&Gr[j].Pos[2],sizeof(type_real),1,pfin);
-      fread(&Gr[j].NumPart,sizeof(int),1,pfin);
+      fread(&Gr[j].NumPart,sizeof(type_int),1,pfin);
 
       cut = Gr[j].NumPart*cp.Mpart; // Num de particulas por la Masa de la particula [10^10 Msol/h]
       if(cut<m_critica) continue;
@@ -343,43 +304,45 @@ void read_grup_fof(type_real prefix)
 
     if(j==cp.ngrup)
     {
-      fprintf(stdout,"Grupos %d menores a mcrit %g\n",j-cp.ngrup,m_critica*1.e10);
+      fprintf(stdout,"Grupos %u menores a mcrit %g\n",j-cp.ngrup,m_critica*1.e10);
       RED("NO DEBERIA ESCRIBIR NINGUN ARCHIVO\n");
+      fclose(pfin);
+      return;
     }
 
     cp.ngrup = j; // reasigna el num de grupos
     Gr = (struct grup_data *) realloc(Gr,cp.ngrup*sizeof(struct grup_data));
     sprintf(filename,"%.2d_%.2f_centros_cut_%.2f.bin",snap.num,prefix,m_critica);
     pfout = fopen(filename,"w");
-    fwrite(&cp.ngrup,sizeof(int),1,pfout);
+    fwrite(&cp.ngrup,sizeof(type_int),1,pfout);
 
     for(i=0;i<cp.ngrup;i++)
     {
-      fwrite(&Gr[i].save,sizeof(int),1,pfout);
+      fwrite(&Gr[i].save,sizeof(type_int),1,pfout);
       fwrite(&Gr[i].id,sizeof(type_int),1,pfout);
       fwrite(&Gr[i].Pos[0],sizeof(type_real),1,pfout);
       fwrite(&Gr[i].Pos[1],sizeof(type_real),1,pfout);
       fwrite(&Gr[i].Pos[2],sizeof(type_real),1,pfout);
-      fwrite(&Gr[i].NumPart,sizeof(int),1,pfout);
+      fwrite(&Gr[i].NumPart,sizeof(type_int),1,pfout);
     }
 
     fclose(pfout);
 
-    fprintf(stdout,"Grupos %d mayores a mcrit %g\n",cp.ngrup,m_critica*1.e10);
+    fprintf(stdout,"Grupos %u mayores a mcrit %g\n",cp.ngrup,m_critica*1.e10);
       
   #else
 
     for(i=0;i<cp.ngrup;i++)
     {
-      fread(&Gr[i].save,sizeof(int),1,pfin);
+      fread(&Gr[i].save,sizeof(type_int),1,pfin);
       fread(&Gr[i].id,sizeof(type_int),1,pfin);
       fread(&Gr[i].Pos[0],sizeof(type_real),1,pfin);
       fread(&Gr[i].Pos[1],sizeof(type_real),1,pfin);
       fread(&Gr[i].Pos[2],sizeof(type_real),1,pfin);
-      fread(&Gr[i].NumPart,sizeof(int),1,pfin);
+      fread(&Gr[i].NumPart,sizeof(type_int),1,pfin);
     }
 
-    fprintf(stdout,"Grupos %d\n",cp.ngrup);
+    fprintf(stdout,"Grupos %u\n",cp.ngrup);
  
   #endif
 

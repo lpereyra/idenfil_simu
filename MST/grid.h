@@ -7,11 +7,10 @@
 
 struct gridst
 {
-  int step;
 	unsigned long ngrid;
 	unsigned long nobj;
-	int *llirst;
-	int *ll;
+	type_int *llirst;
+	type_int *ll;
 };
 
 extern struct gridst grid;

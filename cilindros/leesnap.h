@@ -1,13 +1,11 @@
 #ifndef LEESNAP_H
 #define LEESNAP_H
 
-void leeheader(char *nombrefile);
-void lee(char *filename, struct particle_data *Q, int *ind);
-void read_gadget();
-void read_segment(int NNN, type_real *fof);
-void read_grup_fof(type_real *fof);
+extern void read_gadget(void);
+extern void read_segment(const type_int NNN, const type_real *fof);
+extern void read_grup_fof(const type_real *fof);
 #ifdef VEL_RELATIVA
-  void grupos_fof(type_real *fof);
+  extern void grupos_fof(const type_real *fof);
 #endif
 
 type_real pmin[3], pmax[3];
@@ -16,19 +14,19 @@ type_real pmin[3], pmax[3];
 struct SnapST{
   int nfiles;
   char root[200], name[200];
-  int num;
+  type_int num;
 } snap;
 
 struct io_header{
-  int      npart[N_part_types];
+  type_int npart[N_part_types];
   double   mass[N_part_types];
   double   time;
   double   redshift;
-  int      flag_sfr;
-  int      flag_feedback;
-  int      npartTotal[N_part_types];
-  int      flag_cooling;
-  int      num_files;
+  type_int flag_sfr;
+  type_int flag_feedback;
+  type_int npartTotal[N_part_types];
+  type_int flag_cooling;
+  type_int num_files;
   double   BoxSize;
   double   Omega0;
   double   OmegaLambda;

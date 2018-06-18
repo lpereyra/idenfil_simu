@@ -21,7 +21,7 @@ struct cosmoparam
 		double  aexp     		;  /*                                       */
 		double  Hubble_a    ;  /*                                       */
 		double  soft        ;  /* Softening [kpc / h]                   */
-    int  ngrup          ;  /* Número de grupos                      */
+    type_int  ngrup     ;  /* Número de grupos                      */
 
 };
 

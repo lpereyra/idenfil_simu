@@ -7,16 +7,15 @@
 
 struct gridst
 {
-  int step;
-	unsigned long ngrid;
-	unsigned long nobj;
-	int *llirst;
-	int *ll;
+  unsigned long ngrid;
+  unsigned long nobj;
+  type_int *icell;
+  type_int *size;
 } grid;
 
 
-void grid_init(void);
-void grid_build(void);
-void grid_free(void);
+extern void grid_init(void);
+extern void grid_build(void);
+extern void grid_free(void);
 
 #endif

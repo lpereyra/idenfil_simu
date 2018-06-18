@@ -76,6 +76,6 @@ type_real RSEP;
 #ifdef MCRITIC
 type_real m_critica;
 #endif
-void init_variables(int argc, char **argv);
+extern void init_variables(int argc, char **argv);
 
 #endif

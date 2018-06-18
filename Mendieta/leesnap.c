@@ -7,40 +7,9 @@
 #include "leesnap.h"
 #include "colores.h"
 
-void read_gadget(void){
-  char filename[200];
-  int  ifile,ind;
-  size_t total_memory;
-
-  if(snap.nfiles>1)
-    sprintf(filename,"%s%s.0",snap.root,snap.name);
-  else
-    sprintf(filename,"%s%s",snap.root,snap.name);
-
-  leeheader(filename);
-
-  /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
-  total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
-  printf("Allocating %.5zu Gb for %d particles\n",total_memory,cp.npart);
-  P = (struct particle_data *) malloc(cp.npart*sizeof(struct particle_data));
-  assert(P != NULL);
-
-  /***** LEE POS Y VEL DE LAS PARTICULAS ***********************/
-  for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++){
-    if(snap.nfiles>1)
-      sprintf(filename,"%s%s.%d",snap.root,snap.name,ifile);
-    else
-      sprintf(filename,"%s%s",snap.root,snap.name);
-
-    lee(filename,P,&ind);
-  }
-
-  fprintf(stdout,"End reading snapshot file(s)...\n"); fflush(stdout);
-}
-
-void leeheader(char *filename){
+static void leeheader(const char *filename){
   FILE *pf;
-  int d1,d2;
+  type_int d1,d2;
 
   pf = fopen(filename,"r");
   if(pf == NULL){
@@ -54,7 +23,7 @@ void leeheader(char *filename){
   assert(d1==d2);
   fclose(pf);
 
-  /* Definicion estructura cosmoparam */
+  // Definicion estructura cosmoparam
   cp.omegam    = header.Omega0;
   cp.omegal    = header.OmegaLambda;
   cp.omegak    = 1.0 - cp.omegam - cp.omegal;
@@ -75,7 +44,7 @@ void leeheader(char *filename){
   printf("*********************************** \n");
   printf("*   Parametros de la simulacion   * \n");
   printf("*********************************** \n");
-  printf("  Numero de particulas = %d \n", cp.npart);
+  printf("  Numero de particulas = %u \n", cp.npart);
   printf("  Lado del box = %g \n", cp.lbox);
   printf("  Redshift = %g \n", cp.redshift);
   printf("  Omega Materia = %g \n", cp.omegam);
@@ -87,16 +56,18 @@ void leeheader(char *filename){
   printf("*********************************** \n");
 }
 
-void lee(char *filename, struct particle_data *Q, int *ind){
+static void lee(const char *filename, type_int *ind){
   FILE *pf;
-  int d1, d2;
-  int k, pc, n;
+  type_int d1, d2;
+  type_int k, pc, n;
 
   type_real r[3];
   #ifdef STORE_VELOCITIES
   type_real v[3];
   #endif
+  #ifdef STORE_IDS
   type_int id;
+  #endif
 
   pf = fopen(filename,"r");
   if(pf == NULL){
@@ -116,10 +87,9 @@ void lee(char *filename, struct particle_data *Q, int *ind){
     for(n = 0; n < header.npart[k]; n++){
       fread(&r[0], size_real, 3, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        Q[*ind+pc].Pos[0] = r[0]*POSFACTOR;
-        Q[*ind+pc].Pos[1] = r[1]*POSFACTOR;
-        Q[*ind+pc].Pos[2] = r[2]*POSFACTOR;
-
+        P.x[*ind+pc] = r[0]*POSFACTOR;
+        P.y[*ind+pc] = r[1]*POSFACTOR;
+        P.z[*ind+pc] = r[2]*POSFACTOR;
         pc++;
       }
     }
@@ -133,9 +103,9 @@ void lee(char *filename, struct particle_data *Q, int *ind){
     for(n = 0; n < header.npart[k]; n++){
       fread(&v[0], size_real, 3, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        Q[*ind+pc].Vel[0] = v[0]*VELFACTOR;
-        Q[*ind+pc].Vel[1] = v[1]*VELFACTOR;
-        Q[*ind+pc].Vel[2] = v[2]*VELFACTOR;
+        P.vx[*ind+pc] = v[0]*VELFACTOR;
+        P.vy[*ind+pc] = v[1]*VELFACTOR;
+        P.vz[*ind+pc] = v[2]*VELFACTOR;
         pc++;
       }
     }
@@ -152,7 +122,7 @@ void lee(char *filename, struct particle_data *Q, int *ind){
     for(n = 0; n < header.npart[k]; n++){
       fread(&id, size_int, 1, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        Q[*ind+pc].id = id;
+        P.id[*ind+pc] = id;
         pc++;
       }
     }
@@ -168,9 +138,32 @@ void lee(char *filename, struct particle_data *Q, int *ind){
   fclose(pf);
 }
 
-void re_change_positions(int n, struct particle_data *Q){
-  int ip, idim;
-  for(ip = 0; ip < n; ip++)
-    for(idim = 0; idim < 3; idim++)
-      Q[ip].Pos[idim] += pmin[idim];
+extern void read_gadget(void){
+  char filename[200];
+  type_int ifile, ind;
+  size_t total_memory;
+
+  if(snap.nfiles>1)
+    sprintf(filename,"%s%s.0",snap.root,snap.name);
+  else
+    sprintf(filename,"%s%s",snap.root,snap.name);
+
+  leeheader(filename);
+
+  /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
+  total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
+  printf("Allocating %.5zu Gb for %u particles\n",total_memory,cp.npart);
+  if(!allocate_particles(cp.npart))  exit(1);
+
+  /***** LEE POS Y VEL DE LAS PARTICULAS ***********************/
+  for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++){
+    if(snap.nfiles>1)
+      sprintf(filename,"%s%s.%d",snap.root,snap.name,ifile);
+    else
+      sprintf(filename,"%s%s",snap.root,snap.name);
+
+    lee(filename,&ind);
+  }
+
+  fprintf(stdout,"End reading snapshot file(s)...\n"); fflush(stdout);
 }

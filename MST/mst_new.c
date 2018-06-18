@@ -14,32 +14,22 @@
 #include "mst_kruskal.h"
 #include "colores.h"
 
-#ifdef CALCULA_MEDIA
-  #include "grid.h"
-#endif
-
-int  NumPartCut;
-std::vector<std::pair<int,int> > mass_orden;
+type_int  NumPartCut;
+std::vector<std::pair<type_int,type_int> > mass_orden;
 #ifdef BRANCH_SURVIVE
-  int N_part_survive;
+  type_int N_part_survive;
 #endif
 
-void Write_Segments(int *Padre, int *Rank, type_real *fof);
-#ifdef CALCULA_MEDIA
- void calc_media(type_real xc, type_real yc, type_real zc, \
-  type_real vx, type_real vy, type_real vz, int *numpart, type_real *vel_media, \
-  type_real *rcil2, type_real rlong_2, int ncil);
- bool point_inside(type_real dot, type_real rlong_2);
-#endif
+void Write_Segments(type_int *Padre, type_int *Rank, type_real *fof);
 
 int main(int argc, char **argv)
 {
-  int    i;
-  int    *Padre, *Rank;
+  type_int  i;
+  type_int  *Padre, *Rank;
   double start,end;
   double MassCut;
-  std::vector<std::vector<int> > adjacency_list;
-  std::vector<std::pair<type_real,std::pair<int,int> > > edges;
+  std::vector<std::vector<type_int> > adjacency_list;
+  std::vector<std::pair<type_real,std::pair<type_int,type_int> > > edges;
 
   TIMER(start);
   
@@ -50,7 +40,7 @@ int main(int argc, char **argv)
   read_gadget();
 
   MassCut = atof(argv[2]);
-  NumPartCut = (int)(MassCut/cp.Mpart) ;  // Masa de la partícula [10^10 Msol / h]
+  NumPartCut = (type_int)(MassCut/cp.Mpart) ;  // Masa de la partícula [10^10 Msol / h]
   #ifdef BRANCH_SURVIVE
   N_part_survive = NumPartCut;
   #endif
@@ -68,17 +58,17 @@ int main(int argc, char **argv)
 
   Voronoi_Grupos(fof[0],edges);
 
-  fprintf(stdout,"%d NumEdges\n",(int)edges.size());
+  fprintf(stdout,"%lu NumEdges\n",edges.size());
   fflush(stdout);
 
-  Padre = (int *) malloc(cp.ngrup*sizeof(int));
-  Rank =  (int *) malloc(cp.ngrup*sizeof(int));
+  Padre = (type_int *) malloc(cp.ngrup*sizeof(type_int));
+  Rank =  (type_int *) malloc(cp.ngrup*sizeof(type_int));
 
   for(i=0;i<cp.ngrup;i++)
   {
     Padre[i] = i;
     Rank[i] = 0;
-    adjacency_list.push_back(std::vector<int>());
+    adjacency_list.push_back(std::vector<type_int>());
   }
 
   Kruskal(Padre,Rank,edges,adjacency_list);
@@ -92,7 +82,7 @@ int main(int argc, char **argv)
 
   for(i=0;i<cp.ngrup;i++)
   {
-    Padre[i] = -1;
+    Padre[i] = cp.ngrup;
     Rank[i]  = 0;
 
     if(adjacency_list[i].size()>0)
@@ -101,11 +91,11 @@ int main(int argc, char **argv)
 
   sort(mass_orden.begin(),mass_orden.end());
   
-  for(i=(int)mass_orden.size()-1;i>=0;i--)
+  for(i=mass_orden.size();i>0;i--)
   {
-    int k = mass_orden[i].second;
+    type_int k = mass_orden[i-1].second;
 
-    if(Padre[k]==-1)
+    if(Padre[k]==cp.ngrup)
       DLU(k,Padre[k],adjacency_list,Padre,Rank);
   }
 
@@ -118,9 +108,6 @@ int main(int argc, char **argv)
   free(Padre);
   free(Rank);
   adjacency_list.clear();
-  #ifdef CALCULA_MEDIA
-  free(P);
-  #endif
 
   TIMER(end);
   fprintf(stdout,"Total time %f\n",end-start);
@@ -129,54 +116,19 @@ int main(int argc, char **argv)
   return(EXIT_SUCCESS);
 }
 
-void Write_Segments(int *Padre, int *Rank, type_real *fof)
+void Write_Segments(type_int *Padre, type_int *Rank, type_real *fof)
 {
   char filename[200];
   FILE *pfout, *pfpropiedades;
-  int i,j,k,id;
+  type_int i,j,k,id;
   type_real dx,dy,dz;
   type_real dux,duy,duz;
   type_real rms,elong;
   type_real r,lenr;
-  std::vector<int> aux;
-  std::vector<std::vector<int> > segmentos;
-  #ifdef CALCULA_MEDIA
-  int ncil;
-  type_real xc,yc,zc;
-  type_real rbin,racum;
-  int bin,lbin;
-  int *npart;
-  type_real *Vmedia;
-  type_real *rcil2;  // En Kpc
-  type_real rlong = 500.; // En Kpc  
-  FILE **pfvel;
-  int   *c;
-
-  ////////////////////////////////////////////////////////////////////////
-  sprintf(filename,"Type in a number of bin\n"); GREEN(filename);
-	scanf("%d",&ncil);
-  sprintf(filename,"The number you typed was %d\n",ncil); GREEN(filename);
-  fflush(stdout);
-  ////////////////////////////////////////////////////////////////////////
-
-  rcil2 = (type_real *) malloc(ncil*sizeof(type_real));
-
-  for(i=0;i<ncil;i++)
-  {
-    r  = (type_real)(ncil-i)*1000.;
-    rcil2[i] = r*r;
-  }
-
-  BLUE("********** Importante ***********\n");
-  for(i=0;i<ncil;i++)
-    {sprintf(filename,"Radio %d   %f Mpc\n",i,sqrt(rcil2[i])/1000.); RED(filename);}
-  sprintf(filename,"Separacion %f Mpc\n",rlong/1000.);RED(filename);
-  BLUE("**********************************\n");
-
-  #endif
+  std::vector<type_int> aux;
+  std::vector<std::vector<type_int> > segmentos;
 
   j = 0;
-
   while(!mass_orden.empty())
   {
 
@@ -184,22 +136,22 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
 
     //if(Padre[i]>=0)
     //if(Rank[i]==1 && Padre[i]>=0)
-    if(Padre[i]>=0)
+    if(Padre[i]<cp.ngrup)
     {
       aux.push_back(i);
       id = Padre[i];
-      Rank[i] *= -1;
+      Rank[i] += cp.ngrup;
 
-      while(id>=0)
+      while(id<cp.ngrup)
       {
-        if(Rank[id]<0)
+        if(Rank[id]>=cp.ngrup)
         {
           aux.push_back(id);
           break;
         }
 
         //if(Rank[id]>2)
-        if(Gr[id].NumPart>NumPartCut && Padre[id]!=-1)
+        if(Gr[id].NumPart>NumPartCut && Padre[id]!=cp.ngrup)
         {
           aux.push_back(id);
 
@@ -210,7 +162,7 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
         }
 
         aux.push_back(id);
-        Rank[id] *= -1;
+        Rank[id] += cp.ngrup;
         id = Padre[id];               
       }
 
@@ -223,7 +175,7 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
     mass_orden.pop_back();
   }
 
-  assert((int)segmentos.size()==j);
+  assert(segmentos.size()==j);
 
   #ifdef MCRITIC
   sprintf(filename,"%.2d_%.4d_segmentos_cut_%.2f_%.2f_%.2f.bin",snap.num,NumPartCut,m_critica,fof[0],fof[1]);
@@ -231,7 +183,7 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
   sprintf(filename,"%.2d_%.4d_segmentos_%.2f_%.2f.bin",snap.num,NumPartCut,fof[0],fof[1]);
   #endif
   pfout=fopen(filename,"w");
-  fwrite(&j,sizeof(int),1,pfout);
+  fwrite(&j,sizeof(type_int),1,pfout);
 
   #ifdef MCRITIC
   sprintf(filename,"%.2d_%.4d_propiedades_cut_%.2f_%.2f_%.2f.bin",snap.num,NumPartCut,m_critica,fof[0],fof[1]);
@@ -240,7 +192,7 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
   #endif
 
   pfpropiedades=fopen(filename,"w");
-  fwrite(&j,sizeof(int),1,pfpropiedades);
+  fwrite(&j,sizeof(type_int),1,pfpropiedades);
 
   #ifdef SORT_DERECHA
 
@@ -258,10 +210,6 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
     #endif
 
     aux = segmentos[i];
-
-    #ifndef CALCULA_MEDIA
-    segmentos[i].clear();
-    #endif
 
     id = aux.back();
 
@@ -299,7 +247,7 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
 
     fwrite(&aux[0],sizeof(int),1,pfout);
 
-    for(k=1;k<(int)aux.size();k++)
+    for(k=1;k<aux.size();k++)
     {
       fwrite(&aux[k],sizeof(int),1,pfout);
 
@@ -322,7 +270,7 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
 
       lenr += r;
 
-      if(k==(int)aux.size()-1) continue;
+      if(k==aux.size()-1) continue;
 
       dx = Gr[aux[k]].Pos[0] - Gr[aux[0]].Pos[0];
       dy = Gr[aux[k]].Pos[1] - Gr[aux[0]].Pos[1];
@@ -366,258 +314,6 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
   fclose(pfout);
   fclose(pfpropiedades);
 
-  #ifdef CALCULA_MEDIA
-
-  //////////////////////////////////////////////////
-  fprintf(stdout,"Build grid\n");
-
-  grid.step = 0; /// IMPORTANTE
-  grid.nobj = cp.npart;
-  r = sqrt(rcil2[0]);
- 
-  if(rlong>r){
-    grid.ngrid = (int)(cp.lbox/rlong);
-  }else{ 
-    grid.ngrid = (int)(cp.lbox/r);
-  }
-
-  if(grid.ngrid > NGRIDMAX)
-  {
-    fprintf(stdout,"Using NGRIDMAX = %d\n",NGRIDMAX);
-    grid.ngrid = NGRIDMAX;
-  }
-
-  grid_init();
-  grid_build();
-
-  fprintf(stdout,"End build grid\n");
-
-  //////////////////////////////////////////////////
-  pfvel = (FILE **) malloc(NTHREADS*sizeof(FILE));
-  c = (int *) malloc(NTHREADS*sizeof(int));
-
-  for(i=0;i<NTHREADS;i++)
-  {
-    c[i] = 0;
-    #ifdef MCRITIC
-    sprintf(filename,"%.2d_%.4d_vmedia_cut_%.2f_%.2f_%.2f.%.2d.bin",snap.num,NumPartCut,m_critica,fof[0],fof[1],i);
-    #else
-    sprintf(filename,"%.2d_%.4d_vmedia_%.2f_%.2f.%.2d.bin",snap.num,NumPartCut,fof[0],fof[1],i);
-    #endif
-    pfvel[i]=fopen(filename,"w");
-    fwrite(&c[i],sizeof(int),1,pfvel[i]);        
-    fwrite(&ncil,sizeof(int),1,pfvel[i]);
-  }
-  ////////////////////////////////////////////////
-  
-  elong = rlong;
-
-  #pragma omp parallel for num_threads(NTHREADS) \
-  schedule(static) default(none) private(i,k,aux,dx,dy,dz,r, \
-  npart,Vmedia,dux,duy,duz,racum,bin,lbin,rbin,xc,yc,zc) \
-  shared(j,pfvel,segmentos,Gr,cp,rlong,elong,rcil2,c,ncil,stdout)
-  for(i=0;i<j;i++)
-  {
-    aux = segmentos[i];
-    segmentos[i].clear();
-
-    int Tid = omp_get_thread_num();
-    npart = (int *) calloc(ncil,sizeof(int));
-    Vmedia = (type_real *) calloc(3*ncil,sizeof(type_real));
-    racum = 0.0;
-
-    for(k=1;k<(int)aux.size();k++)
-    {
-
-      dx = Gr[aux[k]].Pos[0] - Gr[aux[k-1]].Pos[0];
-      dy = Gr[aux[k]].Pos[1] - Gr[aux[k-1]].Pos[1];
-      dz = Gr[aux[k]].Pos[2] - Gr[aux[k-1]].Pos[2];
-
-      #ifdef PERIODIC
-      dx = dx >= cp.lbox*0.5 ? dx-cp.lbox : dx;
-      dx = dx < -cp.lbox*0.5 ? dx+cp.lbox : dx;
-
-      dy = dy >= cp.lbox*0.5 ? dy-cp.lbox : dy;
-      dy = dy < -cp.lbox*0.5 ? dy+cp.lbox : dy;
-
-      dz = dz >= cp.lbox*0.5 ? dz-cp.lbox : dz;
-      dz = dz < -cp.lbox*0.5 ? dz+cp.lbox : dz;
-      #endif
-      
-      r = sqrt(dx*dx+dy*dy+dz*dz);
-
-      dx /= r;
-      dy /= r;
-      dz /= r;
-
-      if(k==1)
-      {
-
-        xc = Gr[aux[0]].Pos[0];
-        yc = Gr[aux[0]].Pos[1];
-        zc = Gr[aux[0]].Pos[2]; 
-
-        calc_media(xc,yc,zc,dx,dy,dz,npart,Vmedia,rcil2,elong,ncil);            
-
-      }else{
-
-        xc = Gr[aux[k-1]].Pos[0];
-        yc = Gr[aux[k-1]].Pos[1];
-        zc = Gr[aux[k-1]].Pos[2];
-
-        rbin = rlong-racum;
-        xc += rbin*dx;
-        yc += rbin*dy;
-        zc += rbin*dz;   
-
-        #ifdef PERIODIC
-        xc = xc >= cp.lbox ? xc-cp.lbox : xc;
-        xc = xc <      0.0 ? xc+cp.lbox : xc;
-      
-        yc = yc >= cp.lbox ? yc-cp.lbox : yc;
-        yc = yc <      0.0 ? yc+cp.lbox : yc;
- 
-        zc = zc >= cp.lbox ? zc-cp.lbox : zc;
-        zc = zc <      0.0 ? zc+cp.lbox : zc;
-        #endif
-
-        calc_media(xc,yc,zc,dx,dy,dz,npart,Vmedia,rcil2,elong,ncil);
-
-        dux = Gr[aux[k]].Pos[0]-xc;
-        duy = Gr[aux[k]].Pos[1]-yc;
-        duz = Gr[aux[k]].Pos[2]-zc;
-
-        #ifdef PERIODIC
-        dux = dux >= 0.5*cp.lbox ? dux-cp.lbox : dux;
-        dux = dux < -0.5*cp.lbox ? dux+cp.lbox : dux;
-      
-        duy = duy >= 0.5*cp.lbox ? duy-cp.lbox : duy;
-        duy = duy < -0.5*cp.lbox ? duy+cp.lbox : duy;
- 
-        duz = duz >= 0.5*cp.lbox ? duz-cp.lbox : duz;
-        duz = duz < -0.5*cp.lbox ? duz+cp.lbox : duz;
-        #endif
-
-        r = sqrt(dux*dux+duy*duy+duz*duz);
-
-      }
-
-      lbin = (int)(r/rlong);
-
-      for(bin=0;bin<lbin;bin++)
-      {
-        xc += rlong*dx;
-        yc += rlong*dy;
-        zc += rlong*dz;   
-
-        #ifdef PERIODIC
-        xc = xc >= cp.lbox ? xc-cp.lbox : xc;
-        xc = xc <      0.0 ? xc+cp.lbox : xc;
-        
-        yc = yc >= cp.lbox ? yc-cp.lbox : yc;
-        yc = yc <      0.0 ? yc+cp.lbox : yc;
- 
-        zc = zc >= cp.lbox ? zc-cp.lbox : zc;
-        zc = zc <      0.0 ? zc+cp.lbox : zc;
-        #endif
-
-        calc_media(xc,yc,zc,dx,dy,dz,npart,Vmedia,rcil2,elong,ncil);            
-      }
-
-      dux = xc-Gr[aux[k]].Pos[0];
-      duy = yc-Gr[aux[k]].Pos[1];
-      duz = zc-Gr[aux[k]].Pos[2];
-
-      #ifdef PERIODIC
-      dux = dux >= 0.5*cp.lbox ? dux-cp.lbox : dux;
-      dux = dux < -0.5*cp.lbox ? dux+cp.lbox : dux;
-      
-      duy = duy >= 0.5*cp.lbox ? duy-cp.lbox : duy;
-      duy = duy < -0.5*cp.lbox ? duy+cp.lbox : duy;
- 
-      duz = duz >= 0.5*cp.lbox ? duz-cp.lbox : duz;
-      duz = duz < -0.5*cp.lbox ? duz+cp.lbox : duz;
-      #endif
-      
-      racum = sqrt(dux*dux+duy*duy+duz*duz);
-      
-    }
-
-    calc_media(Gr[aux.back()].Pos[0],Gr[aux.back()].Pos[1],Gr[aux.back()].Pos[2], \
-    dx,dy,dz,npart,Vmedia,rcil2,elong,ncil);            
-
-    ///////////////////////////////////////////////////////////////////////////////////
-
-    dx = Gr[aux[1]].Pos[0] - Gr[aux[0]].Pos[0];
-    dy = Gr[aux[1]].Pos[1] - Gr[aux[0]].Pos[1];
-    dz = Gr[aux[1]].Pos[2] - Gr[aux[0]].Pos[2];
-
-    #ifdef PERIODIC
-    if(dx> 0.5*cp.lbox) dx -= cp.lbox;
-    if(dx<-0.5*cp.lbox) dx += cp.lbox;
-    if(dy> 0.5*cp.lbox) dy -= cp.lbox;
-    if(dy<-0.5*cp.lbox) dy += cp.lbox;
-    if(dz> 0.5*cp.lbox) dz -= cp.lbox;
-    if(dz<-0.5*cp.lbox) dz += cp.lbox;
-    #endif
-
-    r = sqrt(dx*dx+dy*dy+dz*dz);
-
-    dx /= r;
-    dy /= r;
-    dz /= r;
-
-    xc = Gr[aux[0]].Pos[0]+racum*dx;
-    yc = Gr[aux[0]].Pos[1]+racum*dy;
-    zc = Gr[aux[0]].Pos[2]+racum*dz;
-
-    #ifdef PERIODIC
-    xc = xc >= cp.lbox ? xc-cp.lbox : xc;
-    xc = xc <      0.0 ? xc+cp.lbox : xc;
-    
-    yc = yc >= cp.lbox ? yc-cp.lbox : yc;
-    yc = yc <      0.0 ? yc+cp.lbox : yc;
- 
-    zc = zc >= cp.lbox ? zc-cp.lbox : zc;
-    zc = zc <      0.0 ? zc+cp.lbox : zc;
-    #endif
-
-    calc_media(xc,yc,zc,dx,dy,dz,npart,Vmedia,rcil2,elong,ncil);             
-    ///////////////////////////////////////////////////////////////////////////////////
-    
-    for(bin=0;bin<ncil;bin++)
-    {
-      for(k=0;k<3;k++)
-      {
-        if(npart[bin]==0)          
-          fprintf(stdout,"Tid %d Fil %d BREAK!!! npart[bin]==0!!!\n",Tid,i);  
-        Vmedia[bin+ncil*k] /= (type_real)npart[bin];
-      }
-    }
-
-    fwrite(&i,sizeof(int),1,pfvel[Tid]);
-    fwrite(&Vmedia[0],sizeof(type_real),3*ncil,pfvel[Tid]);
-    c[Tid]++;
-
-    free(npart);
-    free(Vmedia);
-    aux.clear();
-  } // cierra el for
-
-  for(i=0;i<NTHREADS;i++)
-  {
-    fprintf(stdout,"Tid %d Nfil %d\n",i,c[i]);  
-    rewind(pfvel[i]);
-    fwrite(&c[i],sizeof(int),1,pfvel[i]);
-    fclose(pfvel[i]);
-  }
-
-  free(c);
-  grid_free();
-  free(rcil2);
-
-  #endif // CALCULA MEDIA
-
   while(!segmentos.empty())
     segmentos.pop_back();
 
@@ -626,136 +322,3 @@ void Write_Segments(int *Padre, int *Rank, type_real *fof)
   return;
 
 }
-
-#ifdef CALCULA_MEDIA
-
-void calc_media(type_real xc, type_real yc, type_real zc, \
-type_real vx, type_real vy, type_real vz, int *numpart, type_real *vel_media, \
-type_real *rcil2, type_real rlong_2, int ncil)
-{
-  int i,j,k;
-  int ixc, iyc, izc;
-  int ixci, iyci, izci;
-  int ixcf, iycf, izcf;
-  int ix, iy, iz;
-  int ixx, iyy, izz;
-  int ibox;
-  type_real Posprima[3];
-  type_real lbox,fac,lbox2;
-  type_real dot,dis;
-  int ngrid;
-
-  ngrid = grid.ngrid;
-  lbox  = cp.lbox;
-  fac   = (type_real)ngrid/lbox;
-  lbox2 = lbox/2.0;
-
-  ixc  = (int)(xc*fac);
-  ixci = ixc - 1;
-  ixcf = ixc + 1;
-  iyc  = (int)(yc*fac);
-  iyci = iyc - 1;
-  iycf = iyc + 1;
-  izc  = (int)(zc*fac);
-  izci = izc - 1;
-  izcf = izc + 1;
-
-  #ifndef PERIODIC
-  if( ixci < 0 ) ixci = 0;
-  if( iyci < 0 ) iyci = 0;
-  if( izci < 0 ) izci = 0;
-  if( ixcf >= ngrid ) ixcf = ngrid - 1;
-  if( iycf >= ngrid ) iycf = ngrid - 1;
-  if( izcf >= ngrid ) izcf = ngrid - 1;
-  #endif
-
-  for(ixx = ixci; ixx <= ixcf; ixx++){
-    ix = ixx;
-    #ifdef PERIODIC
-    if(ix >= ngrid) ix = ix - ngrid;
-    if(ix < 0) ix = ix + ngrid;
-    #endif
-    for( iyy = iyci ; iyy <= iycf ; iyy++){
-      iy = iyy;
-      #ifdef PERIODIC
-      if(iy >= ngrid) iy = iy - ngrid;
-      if(iy < 0) iy = iy + ngrid;
-      #endif
-  
-      for( izz = izci ; izz <= izcf ; izz++){
-        iz = izz;
-        #ifdef PERIODIC
-        if(iz >= ngrid) iz = iz - ngrid;
-        if(iz < 0) iz = iz + ngrid;
-        #endif
-
-        ibox = (ix * ngrid + iy) * ngrid + iz ;
-
-        i = grid.llirst[ibox];
-
-        while(i != -1)
-        {
-          Posprima[0] = P[i].Pos[0] - xc;
-          Posprima[1] = P[i].Pos[1] - yc;
-          Posprima[2] = P[i].Pos[2] - zc;
-
-          #ifdef PERIODIC
-          if(Posprima[0] >  lbox2) Posprima[0] = Posprima[0] - lbox;
-          if(Posprima[1] >  lbox2) Posprima[1] = Posprima[1] - lbox;
-          if(Posprima[2] >  lbox2) Posprima[2] = Posprima[2] - lbox;
-          if(Posprima[0] < -lbox2) Posprima[0] = Posprima[0] + lbox;
-          if(Posprima[1] < -lbox2) Posprima[1] = Posprima[1] + lbox;
-          if(Posprima[2] < -lbox2) Posprima[2] = Posprima[2] + lbox;
-          #endif
-
-          dot = Posprima[0]*vx+Posprima[1]*vy+Posprima[2]*vz;
-
-          if(point_inside(dot,rlong_2))
-          {        
-
-            dis = Posprima[0]*Posprima[0]+Posprima[1]*Posprima[1]+Posprima[2]*Posprima[2]-dot*dot;        
-
-            for(j=0;j<ncil;j++)
-            {
-              if(dis<rcil2[j])
-              {
-
-                for(k=0;k<3;k++)
-                  vel_media[j+ncil*k] += P[i].Vel[k];
-
-                numpart[j]++;
-
-              }else{
-
-                break;
-
-              }
-            }
-          } // cierra dis
-
-
-          i = grid.ll[i];
-
-        } //fin lazo particulas del grid
-      } //fin izz
-    } //fin iyy
-  } //fin ixx
-
-  return;
-}
-
-bool point_inside(type_real dot, type_real rlong_2)
-{
-
-  if(fabs(dot)>rlong_2){
-
-      return false;
-
-  }else{
-
-    return true;
-
-  }
-
-}
-#endif

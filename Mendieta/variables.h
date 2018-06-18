@@ -35,21 +35,27 @@ size_t size_int;
 /* Posiciones, velocidades y energias de las partículas */
 struct particle_data 
 {
-  type_real      Pos[3];
+  type_real      *x;
+  type_real      *y;
+  type_real      *z;
   #ifdef STORE_VELOCITIES
-  type_real      Vel[3];
+  type_real      *vx;
+  type_real      *vy;
+  type_real      *vz;
   #endif
   #ifdef STORE_IDS
-  type_int       id;
+  type_int       *id;
   #endif
-  int            sub;
-  int            gr;
-} *P;
+} P;
 
-int  nfrac;
+type_int       **gr;
+
+type_int  nfrac;
 type_real *fof;
 type_real pmin[3], pmax[3];
 
-void init_variables(int argc, char **argv);
+extern void init_variables(int argc, char **argv);
+extern int allocate_particles(const type_int size);
+extern void free_particles( void );
 
 #endif

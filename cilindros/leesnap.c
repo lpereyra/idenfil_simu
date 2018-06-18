@@ -7,40 +7,9 @@
 #include "leesnap.h"
 #include "colores.h"
 
-void read_gadget(void){
-  char filename[200];
-  int  ifile,ind;
-  size_t total_memory;
-
-  if(snap.nfiles>1)
-    sprintf(filename,"%s%s.0",snap.root,snap.name);
-  else
-    sprintf(filename,"%s%s",snap.root,snap.name);
-
-  leeheader(filename);
-
-  /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
-  total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
-  printf("Allocating %.5zu Gb for %d particles\n",total_memory,cp.npart);
-  P = (struct particle_data *) malloc(cp.npart*sizeof(struct particle_data));
-  assert(P != NULL);
-
-  /***** LEE POS Y VEL DE LAS PARTICULAS ***********************/
-  for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++){
-    if(snap.nfiles>1)
-      sprintf(filename,"%s%s.%d",snap.root,snap.name,ifile);
-    else
-      sprintf(filename,"%s%s",snap.root,snap.name);
-
-    lee(filename,P,&ind);
-  }
-
-  fprintf(stdout,"End reading snapshot file(s)...\n"); fflush(stdout);
-}
-
-void leeheader(char *filename){
+static void leeheader(const char *filename){
   FILE *pf;
-  int d1,d2;
+  type_int d1,d2;
 
   pf = fopen(filename,"r");
   if(pf == NULL){
@@ -54,7 +23,7 @@ void leeheader(char *filename){
   assert(d1==d2);
   fclose(pf);
 
-  /* Definicion estructura cosmoparam */
+  // Definicion estructura cosmoparam
   cp.omegam    = header.Omega0;
   cp.omegal    = header.OmegaLambda;
   cp.omegak    = 1.0 - cp.omegam - cp.omegal;
@@ -75,7 +44,7 @@ void leeheader(char *filename){
   printf("*********************************** \n");
   printf("*   Parametros de la simulacion   * \n");
   printf("*********************************** \n");
-  printf("  Numero de particulas = %d \n", cp.npart);
+  printf("  Numero de particulas = %u \n", cp.npart);
   printf("  Lado del box = %g \n", cp.lbox);
   printf("  Redshift = %g \n", cp.redshift);
   printf("  Omega Materia = %g \n", cp.omegam);
@@ -87,17 +56,19 @@ void leeheader(char *filename){
   printf("*********************************** \n");
 }
 
-void lee(char *filename, struct particle_data *Q, int *ind){
+static void lee(const char *filename, type_int *ind){
   FILE *pf;
-  int d1, d2;
-  int k, pc, n;
-  #ifdef MPC 
-  type_real POSFACTOR = 1000.;
+  type_int d1, d2;
+  type_int k, pc, n;
+
+  type_real r[3];
+  #ifdef STORE_VELOCITIES
+  type_real v[3];
+  #endif
+  #ifdef STORE_IDS
+  type_int id;
   #endif
 
-  type_real r[3],v[3];
-  type_int id;
- 
   pf = fopen(filename,"r");
   if(pf == NULL){
     fprintf(stderr,"can't open file `%s`\n",filename);
@@ -116,14 +87,14 @@ void lee(char *filename, struct particle_data *Q, int *ind){
     for(n = 0; n < header.npart[k]; n++){
       fread(&r[0], size_real, 3, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        #ifdef MPC
-          Q[*ind+pc].Pos[0] = r[0]*POSFACTOR;
-          Q[*ind+pc].Pos[1] = r[1]*POSFACTOR;
-          Q[*ind+pc].Pos[2] = r[2]*POSFACTOR;
+        #ifdef COLUMN
+          P.x[*ind+pc] = r[0]*POSFACTOR;
+          P.y[*ind+pc] = r[1]*POSFACTOR;
+          P.z[*ind+pc] = r[2]*POSFACTOR;
         #else
-          Q[*ind+pc].Pos[0] = r[0];
-          Q[*ind+pc].Pos[1] = r[1];
-          Q[*ind+pc].Pos[2] = r[2];
+          P[*ind+pc].Pos[0] = r[0]*POSFACTOR;
+          P[*ind+pc].Pos[1] = r[1]*POSFACTOR;
+          P[*ind+pc].Pos[2] = r[2]*POSFACTOR;
         #endif
         pc++;
       }
@@ -138,9 +109,15 @@ void lee(char *filename, struct particle_data *Q, int *ind){
     for(n = 0; n < header.npart[k]; n++){
       fread(&v[0], size_real, 3, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        Q[*ind+pc].Vel[0] = v[0]*VELFACTOR;
-        Q[*ind+pc].Vel[1] = v[1]*VELFACTOR;
-        Q[*ind+pc].Vel[2] = v[2]*VELFACTOR;
+        #ifdef COLUMN
+          P.vx[*ind+pc] = v[0]*VELFACTOR;
+          P.vy[*ind+pc] = v[1]*VELFACTOR;
+          P.vz[*ind+pc] = v[2]*VELFACTOR;
+        #else
+          P[*ind+pc].Vel[0] = v[0]*VELFACTOR;
+          P[*ind+pc].Vel[1] = v[1]*VELFACTOR;
+          P[*ind+pc].Vel[2] = v[2]*VELFACTOR;
+        #endif
         pc++;
       }
     }
@@ -157,7 +134,11 @@ void lee(char *filename, struct particle_data *Q, int *ind){
     for(n = 0; n < header.npart[k]; n++){
       fread(&id, size_int, 1, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        Q[*ind+pc].id = id;
+        #ifdef COLUMN
+          P.id[*ind+pc] = id;
+        #else
+          P[*ind+pc].id = id;
+        #endif
         pc++;
       }
     }
@@ -173,7 +154,43 @@ void lee(char *filename, struct particle_data *Q, int *ind){
   fclose(pf);
 }
 
-void read_segment(int NNN, type_real *fof)
+extern void read_gadget(void){
+  char filename[200];
+  type_int ifile, ind;
+  size_t total_memory;
+
+  if(snap.nfiles>1)
+    sprintf(filename,"%s%s.0",snap.root,snap.name);
+  else
+    sprintf(filename,"%s%s",snap.root,snap.name);
+
+  leeheader(filename);
+
+  /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
+  total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
+  printf("Allocating %.5zu Gb for %u particles\n",total_memory,cp.npart);
+
+  #ifdef COLUMN
+    if(!allocate_particles(cp.npart))  exit(1);
+  #else
+    P = (struct particle_data *) malloc(cp.npart*sizeof(struct particle_data));
+    assert(P != NULL);
+  #endif
+
+  /***** LEE POS Y VEL DE LAS PARTICULAS ***********************/
+  for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++){
+    if(snap.nfiles>1)
+      sprintf(filename,"%s%s.%d",snap.root,snap.name,ifile);
+    else
+      sprintf(filename,"%s%s",snap.root,snap.name);
+
+    lee(filename,&ind);
+  }
+
+  fprintf(stdout,"End reading snapshot file(s)...\n"); fflush(stdout);
+}
+
+extern void read_segment(const type_int NNN, const type_real *fof)
 {
   char  filename[200];
   int   i,k;
@@ -187,7 +204,7 @@ void read_segment(int NNN, type_real *fof)
 
   pf = fopen(filename,"rb"); 
 
-  fread(&cp.nseg,sizeof(int),1,pf);
+  fread(&cp.nseg,sizeof(type_int),1,pf);
 
   fprintf(stdout,"Segmentos %d\n",cp.nseg);
   fflush(stdout);
@@ -197,11 +214,11 @@ void read_segment(int NNN, type_real *fof)
   for(i=0;i<cp.nseg;i++)
   {
     fread(&Seg[i].size,sizeof(int),1,pf);
-    Seg[i].list = (int *) malloc(Seg[i].size*sizeof(int));
+    Seg[i].list = (type_int *) malloc(Seg[i].size*sizeof(type_int));
 
     for(k=0;k<Seg[i].size;k++)
     {
-      fread(&Seg[i].list[k],sizeof(int),1,pf);
+      fread(&Seg[i].list[k],sizeof(type_int),1,pf);
     }
   }
 
@@ -224,12 +241,12 @@ void read_segment(int NNN, type_real *fof)
 
   for(i=0;i<cp.nseg;i++)
   {  
-    fread(&Seg[i].flag,sizeof(int),1,pf);
-    fread(&k,sizeof(int),1,pf);
-    fread(&Seg[i].razon,sizeof(float),1,pf);
-    fread(&Seg[i].len,sizeof(float),1,pf);
-    fread(&Seg[i].elong,sizeof(float),1,pf);
-    fread(&Seg[i].rms,sizeof(float),1,pf);
+    fread(&Seg[i].flag,sizeof(type_int),1,pf);
+    fread(&k,sizeof(type_int),1,pf);
+    fread(&Seg[i].razon,sizeof(type_real),1,pf);
+    fread(&Seg[i].len,sizeof(type_real),1,pf);
+    fread(&Seg[i].elong,sizeof(type_real),1,pf);
+    fread(&Seg[i].rms,sizeof(type_real),1,pf);
     
     assert(k==Seg[i].size);
   }
@@ -275,10 +292,10 @@ void read_segment(int NNN, type_real *fof)
   return;
 }
 
-void read_grup_fof(type_real *fof)
+extern void read_grup_fof(const type_real *fof)
 {
   char  filename[200];
-  int   i;
+  type_int   i;
   FILE  *pfin;
  
   #ifdef MCRITIC
@@ -298,12 +315,12 @@ void read_grup_fof(type_real *fof)
 
   for(i=0;i<cp.ngrup;i++)
   {
-    fread(&Gr[i].save,sizeof(int),1,pfin);
-    fread(&Gr[i].id,sizeof(int),1,pfin);
-    fread(&Gr[i].Pos[0],sizeof(float),1,pfin);
-    fread(&Gr[i].Pos[1],sizeof(float),1,pfin);
-    fread(&Gr[i].Pos[2],sizeof(float),1,pfin);
-    fread(&Gr[i].NumPart,sizeof(int),1,pfin);
+    fread(&Gr[i].save,sizeof(type_int),1,pfin);
+    fread(&Gr[i].id,sizeof(type_int),1,pfin);
+    fread(&Gr[i].Pos[0],sizeof(type_real),1,pfin);
+    fread(&Gr[i].Pos[1],sizeof(type_real),1,pfin);
+    fread(&Gr[i].Pos[2],sizeof(type_real),1,pfin);
+    fread(&Gr[i].NumPart,sizeof(type_int),1,pfin);
   }
 
   fclose(pfin);
@@ -314,12 +331,12 @@ void read_grup_fof(type_real *fof)
 
 #ifdef VEL_RELATIVA
 
-void grupos_fof(type_real *fof)
+void grupos_fof(const type_real *fof)
 {
 
   char filename[200];
-  int  i,j,k,id,idv;
-  int  size,len;
+  type_int  i,j,k,id,idv;
+  type_int  size,len;
   type_int *index;
   FILE *pfin;
 
@@ -342,9 +359,9 @@ void grupos_fof(type_real *fof)
   j = 0;
   for(i=0;i<len;i++)
   {   
-    fread(&k,sizeof(int),1,pfin);
-    fread(&id,sizeof(int),1,pfin); 
-    fread(&size,sizeof(int),1,pfin);
+    fread(&k,sizeof(type_int),1,pfin);
+    fread(&id,sizeof(type_int),1,pfin); 
+    fread(&size,sizeof(type_int),1,pfin);
 
     assert(Gr[i].NumPart==size);
 
@@ -353,7 +370,7 @@ void grupos_fof(type_real *fof)
     j+=size;
     for(k=0;k<size;k++)
     {
-      fread(&idv,sizeof(int),1,pfin);
+      fread(&idv,sizeof(type_int),1,pfin);
 
       Gr[i].Vnod[0] += P[index[idv]].Vel[0];
       Gr[i].Vnod[1] += P[index[idv]].Vel[1];

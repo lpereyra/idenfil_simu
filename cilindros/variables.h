@@ -1,6 +1,10 @@
 #ifndef VARIABLES_H
 #define VARIABLES_H
 
+#ifndef POSFACTOR
+  #define POSFACTOR 1.0
+#endif
+
 #ifndef VELFACTOR
   #define VELFACTOR 1.0
 #endif
@@ -29,46 +33,65 @@ size_t size_real;
 size_t size_int;
 
 /* Posiciones, velocidades y energias de las partículas */
-struct particle_data 
-{
-  type_real      Pos[3];
-  #ifdef STORE_VELOCITIES
-  type_real      Vel[3];
-  #endif
-  #ifdef STORE_IDS
-  type_int       id;
-  #endif
-} *P;
+#ifdef COLUMN
+
+  struct particle_data 
+  {
+    type_real      *x;
+    type_real      *y;
+    type_real      *z;
+    #ifdef STORE_VELOCITIES
+    type_real      *vx;
+    type_real      *vy;
+    type_real      *vz;
+    #endif
+    #ifdef STORE_IDS
+    type_int       *id;
+    #endif
+  } P;
+
+#else
+
+  struct particle_data 
+  {
+    type_real      Pos[3];
+    #ifdef STORE_VELOCITIES
+    type_real      Vel[3];
+    #endif
+    #ifdef STORE_IDS
+    type_int       id;
+    #endif
+  } *P;
+
+#endif
 
 struct segmentstd
 {
-  int   size;
-  int   *list;
-  int   flag;
-  float razon;
-  float len;
-  float elong;
-  float rms;
+  type_int  size;
+  type_int  * list;
+  type_int  flag;
+  type_real razon;
+  type_real len;
+  type_real elong;
+  type_real rms;
   type_real *Vmedia;
 } *Seg;
 
 struct grup_data
 {
-  int        save;
-  int        id;
-  type_real  Pos[3];
+  type_int  save;
+  type_int  id;
+  type_real Pos[3];
   #ifdef VEL_RELATIVA
   type_real  Vnod[3];
   #endif
-  int        NumPart;
-  int        *list;
+  type_int  NumPart;
+  type_int  * list;
 } *Gr;
 
-
-
-int  nfrac;
-int  nbins;
-int  ncil;
+type_int  nfrac;
+type_int  nbins;
+type_int  ncil;
 type_real *fof;
 #ifdef FIXED_SEPARATION
 type_real RLEN;
@@ -77,6 +100,11 @@ type_real RSEP;
 #ifdef MCRITIC
 type_real m_critica;
 #endif
-void init_variables(int argc, char **argv);
+
+extern void init_variables(int argc, char **argv);
+#ifdef COLUMN
+  extern int allocate_particles(const type_int size);
+  extern void free_particles( void );
+#endif
 
 #endif

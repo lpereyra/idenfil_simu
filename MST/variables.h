@@ -25,8 +25,8 @@ typedef unsigned long long type_int;
 typedef unsigned int type_int;
 #endif
 
-extern int size_real;
-extern int size_int;
+extern type_int size_real;
+extern type_int size_int;
 
 /* Posiciones, velocidades y energias de las partículas */
 struct particle_data 
@@ -35,27 +35,28 @@ struct particle_data
   #ifdef STORE_VELOCITIES
   type_real      Vel[3];
   #endif
-  #ifdef STORE_IDS
-  type_int       id;
-  #endif
-  int            sub;
+  //#ifdef STORE_IDS
+  //type_int       id;
+  //#endif
+  type_int       sub;
 };
 
 struct grup_data
 {
-  int        save;
+  type_int   save;
   type_int   id;
   type_real  Pos[3];
-  int        NumPart;
+  type_int   NumPart;
 };
 
-extern int  nfrac;
+extern type_int  nfrac;
 extern type_real  *fof;
 extern struct particle_data *P;
 extern struct grup_data *Gr;
+extern type_int *Index;
 
 #ifdef BRANCH_SURVIVE
-extern int N_part_survive;
+extern type_int N_part_survive;
 #endif
 
 #ifdef MCRITIC

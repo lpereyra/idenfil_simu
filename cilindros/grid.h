@@ -9,8 +9,13 @@ struct gridst
 {
 	unsigned long ngrid;
 	unsigned long nobj;
-	int *llirst;
-	int *ll;
+  #ifdef REORDER
+    type_int *icell;
+    type_int *size;
+  #else
+  	type_int *llirst;
+	  type_int *ll;
+  #endif
 } grid;
 
 

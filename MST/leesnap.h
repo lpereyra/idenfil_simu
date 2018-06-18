@@ -3,29 +3,27 @@
 
 void leeheader(char *nombrefile);
 void lee(char *filename, struct particle_data *Q, int *ind);
-void change_positions(int n);
-void re_change_positions(int n, struct particle_data *Q);
 void read_gadget();
 void select_particles_fof(type_real prefix);
 void read_grup_fof(type_real prefix);
 
 /*Input and output files*/
 struct SnapST{
-  int  nfiles;
+  int nfiles;
   char root[200], name[200];
   int num;
 };
 
 struct io_header{
-  int      npart[N_part_types];
+  type_int npart[N_part_types];
   double   mass[N_part_types];
   double   time;
   double   redshift;
-  int      flag_sfr;
-  int      flag_feedback;
-  int      npartTotal[N_part_types];
-  int      flag_cooling;
-  int      num_files;
+  type_int flag_sfr;
+  type_int flag_feedback;
+  type_int npartTotal[N_part_types];
+  type_int flag_cooling;
+  type_int num_files;
   double   BoxSize;
   double   Omega0;
   double   OmegaLambda;

@@ -7,12 +7,12 @@
 #include "leesnap.h"
 #include "colores.h"
 
-int        size_real     ;
-int        size_int      ;
+type_int   size_real     ;
+type_int   size_int      ;
 char       message[200]  ;
 struct     cosmoparam cp ;
 struct     SnapST    snap;
-int        nfrac         ;
+type_int   nfrac         ;
 type_real  *fof          ;
 #ifdef MCRITIC
 type_real m_critica;
@@ -21,7 +21,7 @@ type_real m_critica;
 void init_variables(int argc, char **argv){
   FILE *pfin;
   char filename[200];
-  int i;
+  type_int i;
 
   RED("Initializing variables...\n");
 

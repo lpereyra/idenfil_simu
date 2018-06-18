@@ -2,7 +2,7 @@
 EXTRAS += -DPERIODIC    #periodic boundary condition
 #EXTRAS += -DPRECDOUBLE   #Pos and vel in double precision
 #EXTRAS += -DLONGIDS            #IDs are long integer
-#EXTRAS += -DMPC                #Positions in Mpc
+#EXTRAS += -DPOSFACTOR=1000.0   #Positions in Kpc
 EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 EXTRAS += -DSTORE_VELOCITIES
 EXTRAS += -DSTORE_IDS
@@ -11,16 +11,17 @@ EXTRAS += -DHUECOS
 EXTRAS += -DEXTEND
 #EXTRAS += -DFIXED_SEPARATION
 #EXTRAS += -DVEL_RELATIVA
-#EXTRAS += -DREORDER
 #EXTRAS += -DBIN_LOG
 #EXTRAS += -DSAVEPART
 #EXTRAS += -DMCRITIC
+EXTRAS += -DREORDER
+#EXTRAS += -DCOLUMN
 
 #CC
 CC     := $(OMPP) gcc $(DOMPP)
 DC     := -DNTHREADS=16
 #DC     += -DLOCK
-CFLAGS := -Wall -O3 -fopenmp -march=native -g
+CFLAGS := -Wall -O3 -fopenmp -march=native -ftree-vectorize -g
 #GSLL   := -lgsl -lgslcblas
 LIBS   := -lm
 

@@ -1,13 +1,12 @@
 ### snapshot options #######
 EXTRAS += -DPERIODIC    #periodic boundary condition
 #EXTRAS += -DPRECDOUBLE   #Pos and vel in double precision
-#EXTRAS += -DLONGIDS            #IDs are long integer
-EXTRAS += -DMPC                #Positions in simulation Mpc/h
+#EXTRAS += -DLONGIDS           #IDs are long integer
+#EXTRAS += -DMPC                #Positions in simulation Mpc/h
 EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 EXTRAS += -DSTORE_VELOCITIES
 EXTRAS += -DSTORE_IDS
 EXTRAS += -DBRANCH_SURVIVE
-#EXTRAS += -DCALCULA_MEDIA
 EXTRAS += -DSORT_DERECHA
 #EXTRAS += -DMCRITIC
 

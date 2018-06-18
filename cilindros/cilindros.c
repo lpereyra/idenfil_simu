@@ -14,7 +14,7 @@
 
 int main(int argc, char **argv)
 {
-  int    i,NNN;
+  type_int    i,NNN;
   double start,end;
 
   TIMER(start);
@@ -43,8 +43,11 @@ int main(int argc, char **argv)
   /////////////////////////////////////////////////////////////////////////
   propiedades(NNN,fof);
   /////////////////////////////////////////////////////////////////////////
-
-  free(P);
+  #ifdef COLUMN
+    free_particles();
+  #else
+    free(P);
+  #endif
 
   for(i=0;i<cp.nseg;i++)
     free(Seg[i].list);

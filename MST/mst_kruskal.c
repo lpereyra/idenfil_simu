@@ -12,7 +12,7 @@
 #include "variables.h"
 #include "mst_kruskal.h"
 
-int Root(int i, int *Padre)
+type_int Root(type_int i, type_int *Padre)
 {
 
  if(i != Padre[i])
@@ -21,12 +21,12 @@ int Root(int i, int *Padre)
  return Padre[i];
 }
 
-void DLU(const int id, const int pre, std::vector<std::vector<int> > &adj, int *Padre, int *Rank)
+void DLU(const type_int id, const type_int pre, std::vector<std::vector<type_int> > &adj, type_int *Padre, type_int *Rank)
 {
-  int k,idv;
+  type_int k, idv;
 
   Padre[id] = pre;
-  Rank[id] = (int)adj[id].size();
+  Rank[id]  = adj[id].size();
 
   for(k=0;k<Rank[id];k++)
   {
@@ -41,13 +41,16 @@ void DLU(const int id, const int pre, std::vector<std::vector<int> > &adj, int *
 
 }
  
-void DL(std::vector<std::vector<int> > &vec, int *Padre, int *Rank)
+void DL(std::vector<std::vector<type_int> > &vec, type_int *Padre, type_int *Rank)
 {
-  int i;
-  
-  memset(Padre,-1,cp.ngrup*sizeof(int));
-  memset(Rank,0,cp.ngrup*sizeof(int));
-  
+  type_int i;
+ 
+  for(i=0;i<cp.ngrup;i++)
+  {
+    Padre[i] = cp.ngrup;
+    Rank[i]  = 0;
+  }
+
   for(i=0;i<cp.ngrup;i++)     
     if(vec[i].size()==1)
       DLU(i,Padre[i],vec,Padre,Rank);
@@ -55,9 +58,9 @@ void DL(std::vector<std::vector<int> > &vec, int *Padre, int *Rank)
   return;
 }
 
-bool DFS(int i, std::vector<std::vector<int> > &vec, int cut)
+type_int DFS(type_int i, std::vector<std::vector<type_int> > &vec, type_int cut)
 {
-  int j,k,id,idv;
+  type_int j,k,id,idv;
 
   j = 1;
   id = i;
@@ -73,8 +76,8 @@ bool DFS(int i, std::vector<std::vector<int> > &vec, int cut)
       }
     #endif
    
-    k = vec[idv][0]==id ? vec[idv][1] : vec[idv][0];
-    id = idv;
+    k   = vec[idv][0]==id ? vec[idv][1] : vec[idv][0];
+    id  = idv;
     idv = k;
     j++;        
 
@@ -82,15 +85,15 @@ bool DFS(int i, std::vector<std::vector<int> > &vec, int cut)
   }
 
   if(j<=cut)
-    return true;
+    return 1;
   else 
-    return false;
+    return 0;
 
 }
 
-void Delete_Branch(int i, std::vector<std::vector<int> > &vec)
+void Delete_Branch(const type_int i, std::vector<std::vector<type_int> > &vec)
 {
-  int k,id,idv;
+  type_int k, id, idv;
 
   id = i;
   idv = vec[id][0];
@@ -107,13 +110,6 @@ void Delete_Branch(int i, std::vector<std::vector<int> > &vec)
     idv = k;
   }
 
-  #ifdef DEBUG
-  if(vec[idv].size()==1)
-  {
-    if(i<idv)
-      return false;
-  }
-  #endif    
 
   if(vec[idv].size()==1)
     vec[idv].clear();
@@ -121,11 +117,10 @@ void Delete_Branch(int i, std::vector<std::vector<int> > &vec)
   return;
 }
 
-void Podado(int level, std::vector<std::vector<int> > &vec)
+void Podado(type_int level, std::vector<std::vector<type_int> > &vec)
 {
-  int i,k,cut,N_threads;
-  bool itera;
-  std::vector<int> aux;
+  type_int i, k, cut, N_threads, itera;
+  std::vector<type_int> aux;
 
   #ifdef NTHREADS
   omp_set_dynamic(0);
@@ -142,7 +137,7 @@ void Podado(int level, std::vector<std::vector<int> > &vec)
 
   do{
 
-    itera = false;
+    itera = 0;
 
     #ifdef BRANCH_SURVIVE
       #pragma omp parallel for num_threads(N_threads) schedule(static) default(none) \
@@ -164,14 +159,14 @@ void Podado(int level, std::vector<std::vector<int> > &vec)
         if(DFS(i,vec,cut))       
         {
           Delete_Branch(i,vec);
-          itera = true;
+          itera = 1;
         }
   
       }
 
     }
 
-    if(itera==false) break;
+    if(itera==0) break;
 
     #pragma omp parallel for num_threads(N_threads) schedule(static) default(none) \
     private(aux,k) shared(cp,vec) 
@@ -179,7 +174,7 @@ void Podado(int level, std::vector<std::vector<int> > &vec)
     {
       if(vec[i].size()>2)
       {
-        for(k=0;k<(int)vec[i].size();k++)
+        for(k=0;k<vec[i].size();k++)
         {
           if(!vec[vec[i][k]].empty())
             aux.push_back(vec[i][k]);
@@ -204,12 +199,12 @@ void Podado(int level, std::vector<std::vector<int> > &vec)
   
 }
 
-void Kruskal(int *Padre, int *Rank, std::vector<std::pair<type_real,std::pair<int,int> > > &edges, \
-std::vector<std::vector<int> > &adjacency_list)
+void Kruskal(type_int *Padre, type_int *Rank, std::vector<std::pair<type_real,std::pair<type_int,type_int> > > &edges, \
+std::vector<std::vector<type_int> > &adjacency_list)
 {
-  int j,k,id,idv;
+  type_int j,k,id,idv;
 
-  sort(edges.begin(),edges.end(), std::greater<std::pair<float,std::pair<int,int> > >());
+  sort(edges.begin(),edges.end(), std::greater<std::pair<type_real,std::pair<type_int,type_int> > >());
 
   while(!edges.empty()) 
   {
