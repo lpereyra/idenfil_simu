@@ -115,11 +115,23 @@ static void busv(const type_int ic, type_int * restrict test)
   iyc  = (long)(P.y[ic]*(type_real)grid.ngrid*(1.f/cp.lbox));
   izc  = (long)(P.z[ic]*(type_real)grid.ngrid*(1.f/cp.lbox));
 
-  for(long ixx = ixc-1; ixx <= ixc+1; ixx++)
+  #ifndef PERIODIC
+    for(long ixx = ((ixc-1<0) ? 0 : ixc-1); ixx <= ((ixc+1 >= grid.ngrid) ? grid.ngrid-1 : ixc+1); ixx++)
+  #else
+    for(long ixx = ixc-1; ixx <= ixc+1; ixx++)
+  #endif
   {
-    for(long iyy = iyc-1 ; iyy <= iyc+1 ; iyy++)
+    #ifndef PERIODIC
+      for(long iyy = ((iyc-1<0) ? 0 : iyc-1); iyy <= ((iyc+1 >= grid.ngrid) ? grid.ngrid-1 : iyc+1); iyy++)
+    #else
+      for(long iyy = iyc-1 ; iyy <= iyc+1 ; iyy++)
+    #endif
     {
-      for(long izz = izc-1 ; izz <= izc+1 ; izz++)
+      #ifndef PERIODIC
+        for(long izz = ((izc-1<0) ? 0 : izc-1); izz <= ((izc+1 >= grid.ngrid) ? grid.ngrid-1 : izc+1); izz++)
+      #else
+        for(long izz = izc-1 ; izz <= izc+1 ; izz++)
+      #endif
       {
 
       	#ifdef PERIODIC
@@ -128,10 +140,7 @@ static void busv(const type_int ic, type_int * restrict test)
                        ( (izz >= (long)grid.ngrid) ? izz-(long)grid.ngrid : ( (izz<0) ? izz + (long)grid.ngrid : izz ) ),\
                        (long)grid.ngrid);
         #else
-          ibox = igrid(( (ixx >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (ixx<0) ? 0 : ixx ) ),\
-                   ( (iyy >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (iyy<0) ? 0 : iyy ) ),\
-                   ( (izz >= (long)grid.ngrid) ? (long)grid.ngrid-1 : ( (izz<0) ? 0 : izz ) ),\
-                   (long)grid.ngrid);
+          ibox = igrid(ixx,iyy,izz,(long)grid.ngrid);
         #endif
 
         for(i=grid.icell[ibox];i<grid.icell[ibox]+grid.size[ibox];i++)

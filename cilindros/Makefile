@@ -19,7 +19,7 @@ EXTRAS += -DREORDER
 
 #CC
 CC     := $(OMPP) gcc $(DOMPP)
-DC     := -DNTHREADS=16
+DC     := -DNTHREADS=32
 #DC     += -DLOCK
 CFLAGS := -Wall -O3 -fopenmp -march=native -ftree-vectorize -g
 #GSLL   := -lgsl -lgslcblas

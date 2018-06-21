@@ -6,43 +6,41 @@
 #include <vector>
 #include <algorithm>
 
-#include "variables.h"
-#include "cosmoparam.h"
-#include "leesnap.h"
-#include "timer.h"
-#include "voronoi.h"
-#include "mst_kruskal.h"
-#include "colores.h"
+#include "variables.hh"
+#include "cosmoparam.hh"
+#include "timer.hh"
+#include "colores.hh"
+#include "leesnap.hh"
+#include "pruned.hh"
 
-type_int  NumPartCut;
-std::vector<std::pair<type_int,type_int> > mass_orden;
 #ifdef BRANCH_SURVIVE
   type_int N_part_survive;
 #endif
 
-void Write_Segments(type_int *Padre, type_int *Rank, type_real *fof);
+static void Write_Segments(const type_int NumPartCut, std::vector<std::pair<type_int,type_int> > &mass_orden, \
+type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restrict__ fof);
 
 int main(int argc, char **argv)
 {
-  type_int  i;
-  type_int  *Padre, *Rank;
   double start,end;
   double MassCut;
+  type_int NumPartCut;
+  type_int *Padre, *Rank;
   std::vector<std::vector<type_int> > adjacency_list;
-  std::vector<std::pair<type_real,std::pair<type_int,type_int> > > edges;
+  std::vector<std::pair<type_int,type_int> > mass_orden;
 
   TIMER(start);
-  
+
   init_variables(argc,argv);
   omp_set_nested(1);
 
-  /*Lee archivos de la simulacion*/
+  // Lee archivos de la simulacion
   read_gadget();
 
   MassCut = atof(argv[2]);
   NumPartCut = (type_int)(MassCut/cp.Mpart) ;  // Masa de la partícula [10^10 Msol / h]
   #ifdef BRANCH_SURVIVE
-  N_part_survive = NumPartCut;
+	  N_part_survive = NumPartCut;
   #endif
   
   GREEN("********** Important *************\n");
@@ -52,62 +50,35 @@ int main(int argc, char **argv)
   GREEN("**********************************\n");
   fflush(stdout);
 
-  select_particles_fof(fof[0]);
-
   read_grup_fof(fof[1]);
 
-  Voronoi_Grupos(fof[0],edges);
+  read_mst(adjacency_list,fof);
 
-  fprintf(stdout,"%lu NumEdges\n",edges.size());
-  fflush(stdout);
+	#ifdef PRUNED
 
-  Padre = (type_int *) malloc(cp.ngrup*sizeof(type_int));
-  Rank =  (type_int *) malloc(cp.ngrup*sizeof(type_int));
+	  Podado(LEVEL_PRUNED,adjacency_list);  
 
-  for(i=0;i<cp.ngrup;i++)
-  {
-    Padre[i] = i;
-    Rank[i] = 0;
-    adjacency_list.push_back(std::vector<type_int>());
-  }
+  	#ifdef BRANCH_SURVIVE
+		  fprintf(stdout,"Sobreviven en ramas los nodos con %d\n",N_part_survive);
+  		fflush(stdout);
+  	#endif
 
-  Kruskal(Padre,Rank,edges,adjacency_list);
-
-  Podado(4,adjacency_list);  
-
-  #ifdef BRANCH_SURVIVE
-  fprintf(stdout,"Sobreviven en ramas los nodos con %d\n",N_part_survive);
-  fflush(stdout);
   #endif
-
-  for(i=0;i<cp.ngrup;i++)
-  {
-    Padre[i] = cp.ngrup;
-    Rank[i]  = 0;
-
-    if(adjacency_list[i].size()>0)
-      mass_orden.push_back(std::make_pair(Gr[i].NumPart,i));
-  }
-
-  sort(mass_orden.begin(),mass_orden.end());
-  
-  for(i=mass_orden.size();i>0;i--)
-  {
-    type_int k = mass_orden[i-1].second;
-
-    if(Padre[k]==cp.ngrup)
-      DLU(k,Padre[k],adjacency_list,Padre,Rank);
-  }
+	
+	Padre = (type_int *) malloc(cp.ngrup*sizeof(type_int));
+  Rank =  (type_int *) malloc(cp.ngrup*sizeof(type_int));
+  DL(mass_orden,adjacency_list,Padre,Rank);
 
   fprintf(stdout,"Escribe\n");
   fflush(stdout);
 
-  Write_Segments(Padre,Rank,fof);
+  Write_Segments(NumPartCut, mass_orden,Padre,Rank,fof);
 
   free(Gr);
   free(Padre);
   free(Rank);
   adjacency_list.clear();
+  mass_orden.clear();
 
   TIMER(end);
   fprintf(stdout,"Total time %f\n",end-start);
@@ -116,7 +87,26 @@ int main(int argc, char **argv)
   return(EXIT_SUCCESS);
 }
 
-void Write_Segments(type_int *Padre, type_int *Rank, type_real *fof)
+static void set_name(const char * prefix, char * name, const type_int NumPartCut, const type_real * __restrict__ fof)
+{
+
+  sprintf(name,"%.2d_%.4d_%s",snap.num,NumPartCut,prefix);
+
+  #ifdef MCRITIC
+	  sprintf(name,"%s_cut_%.2f",name,m_critica);
+  #endif
+
+	//#ifdef PRUNED
+	//  sprintf(name,"%s_pruned_%.2d",name,LEVEL_PRUNED);
+  //#endif
+
+  sprintf(name,"%s_%.2f_%.2f.bin",name,fof[0],fof[1]);
+
+	return;
+}
+
+static void Write_Segments(const type_int NumPartCut, std::vector<std::pair<type_int,type_int> > &mass_orden, \
+type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restrict__ fof)
 {
   char filename[200];
   FILE *pfout, *pfpropiedades;
@@ -177,28 +167,19 @@ void Write_Segments(type_int *Padre, type_int *Rank, type_real *fof)
 
   assert(segmentos.size()==j);
 
-  #ifdef MCRITIC
-  sprintf(filename,"%.2d_%.4d_segmentos_cut_%.2f_%.2f_%.2f.bin",snap.num,NumPartCut,m_critica,fof[0],fof[1]);
-  #else
-  sprintf(filename,"%.2d_%.4d_segmentos_%.2f_%.2f.bin",snap.num,NumPartCut,fof[0],fof[1]);
-  #endif
+	set_name("segmentos",filename,NumPartCut,fof);
   pfout=fopen(filename,"w");
   fwrite(&j,sizeof(type_int),1,pfout);
 
-  #ifdef MCRITIC
-  sprintf(filename,"%.2d_%.4d_propiedades_cut_%.2f_%.2f_%.2f.bin",snap.num,NumPartCut,m_critica,fof[0],fof[1]);
-  #else
-  sprintf(filename,"%.2d_%.4d_propiedades_%.2f_%.2f.bin",snap.num,NumPartCut,fof[0],fof[1]);
-  #endif
-
+	set_name("propiedades",filename,NumPartCut,fof);
   pfpropiedades=fopen(filename,"w");
   fwrite(&j,sizeof(type_int),1,pfpropiedades);
 
   #ifdef SORT_DERECHA
 
-  BLUE("********** Importante ***********\n");
-  sprintf(filename,"Ordena el nodo de la derecha es más grande\n");RED(filename);
-  BLUE("*********************************\n");
+	  BLUE("********** Importante ***********\n");
+  	sprintf(filename,"Ordena el nodo de la derecha es más grande\n");RED(filename);
+	  BLUE("*********************************\n");
 
   #endif
 

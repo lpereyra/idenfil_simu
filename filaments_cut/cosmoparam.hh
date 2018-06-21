@@ -1,7 +1,7 @@
 #ifndef COSMOPARAM_H
 #define COSMOPARAM_H
 
-#include "variables.h"
+#include "variables.hh"
 
 #define RHOCRIT 2.77525E11   /* Densidad crítica del Universo [Msol h² / Mpc³] */
 #define GCONS 6.67300E-20    /* Constante de Gravitación [km³ / kg / seg²]     */

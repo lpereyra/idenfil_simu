@@ -1,11 +1,9 @@
 #ifndef LEESNAP_H
 #define LEESNAP_H
 
-void leeheader(char *nombrefile);
-void lee(char *filename, struct particle_data *Q, int *ind);
-void read_gadget();
-void select_particles_fof(type_real prefix);
-void read_grup_fof(type_real prefix);
+extern void read_gadget(void);
+extern void read_grup_fof(type_real prefix);
+extern void read_mst(std::vector<std::vector<type_int> > &adjacency_list, type_real * __restrict__ fof);
 
 /*Input and output files*/
 struct SnapST{
@@ -31,8 +29,6 @@ struct io_header{
   char     fill[256- N_part_types*4- N_part_types*8- 2*8- 2*4- N_part_types*4- 2*4 - 4*8];  /* fills to 256 Bytes */
 };
 
-extern struct io_header header;
 extern struct SnapST    snap;
-extern type_real pmin[3], pmax[3];
 
 #endif

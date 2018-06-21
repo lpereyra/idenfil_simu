@@ -2,23 +2,25 @@
 #include <stdio.h>
 #include <math.h>
 #include <ctype.h>
-#include "variables.h"
-#include "cosmoparam.h"
-#include "leesnap.h"
-#include "colores.h"
+#include <vector>
+#include <algorithm>
+#include "variables.hh"
+#include "cosmoparam.hh"
+#include "leesnap.hh"
+#include "colores.hh"
 
-type_int   size_real     ;
-type_int   size_int      ;
+size_t     size_real;
+size_t     size_int;
 char       message[200]  ;
 struct     cosmoparam cp ;
 struct     SnapST    snap;
 type_int   nfrac         ;
 type_real  *fof          ;
 #ifdef MCRITIC
-type_real m_critica;
+  type_real m_critica;
 #endif
 
-void init_variables(int argc, char **argv){
+extern void init_variables(int argc, char **argv){
   FILE *pfin;
   char filename[200];
   type_int i;
@@ -26,10 +28,10 @@ void init_variables(int argc, char **argv){
   RED("Initializing variables...\n");
 
   size_real = sizeof(type_real);
-  fprintf(stdout,"type_real: %d\n",size_real);
+  fprintf(stdout,"type_real: %zu\n",size_real);
 
   size_int  = sizeof(type_int);
-  fprintf(stdout,"type_int:  %d\n",size_int);
+  fprintf(stdout,"type_int:  %zu\n",size_int);
 
   sprintf(filename,"%s",argv[1]);
   if(!(pfin=fopen(filename,"r")))
@@ -126,6 +128,10 @@ sprintf(message,"Snapnum:                 %d\n",snap.num);BLUE(message);
   #ifdef MCRITIC
   sprintf(message,"M_CRIT [10^10 Msol / h]  %f\n",m_critica);RED(message);
   #endif
+  #ifdef PRUNED
+  RED("  PRUNED\n");
+  sprintf(message,"  LEVEL PRUNED = %d\n",LEVEL_PRUNED);RED(message);
+  #endif
 
   BLUE("********** Makefile Options ***********\n");
   #ifdef DEBUG
@@ -140,18 +146,14 @@ sprintf(message,"Snapnum:                 %d\n",snap.num);BLUE(message);
   #ifdef LONGIDS
   BLUE("  LONGIDS\n");
   #endif
-  #ifdef MPC
-  sprintf(message,"  POSFACTOR = 1000.\n");BLUE(message);
+  #ifdef POSFACTOR
+  sprintf(message,"  POSFACTOR = %f\n",POSFACTOR);BLUE(message);
   #endif
   #ifdef VELFACTOR
   sprintf(message,"  VELFACTOR = %f\n",VELFACTOR);BLUE(message);
   #endif
   #ifdef STORE_VELOCITIES
   BLUE("  STORE_VELOCITIES\n");
-  #endif
-
-  #ifdef LOCK
-  BLUE("  USING LOCKS\n");
   #endif
 
   GREEN("END\n");

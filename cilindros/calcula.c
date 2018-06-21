@@ -36,6 +36,8 @@ static void set_name(char * name, const type_int NNN, char * prefix)
     sprintf(name,"%s_LIN",name);
   #endif
 
+  return;
+
 }
 
 static inline type_int point_inside(type_real dot, type_real rlong_2)
@@ -1405,7 +1407,7 @@ extern void propiedades(const type_int NNN, const type_real *fof)
   FILE *pfextend;
   #endif
   struct dat_struct *dat;
-  const type_real cut_len = 10000.;            // en Kpc
+  const type_real cut_len = 5000.;            // en Kpc
 
   dat = (struct dat_struct *) malloc(cp.nseg*sizeof(struct dat_struct));
 
