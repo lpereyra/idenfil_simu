@@ -155,6 +155,9 @@ sprintf(message,"Snapnum:                 %d\n",snap.num);BLUE(message);
   #ifdef STORE_VELOCITIES
   BLUE("  STORE_VELOCITIES\n");
   #endif
+  #ifdef NEW
+  RED(" NEW\n");
+  #endif
 
   GREEN("END\n");
 }

@@ -2,7 +2,7 @@
 EXTRAS += -DPERIODIC    #periodic boundary condition
 #EXTRAS += -DPRECDOUBLE   #Pos and vel in double precision
 #EXTRAS += -DLONGIDS            #IDs are long integer
-#EXTRAS += -DMPC                #Positions in Mpc
+#EXTRAS += -DPOSFACTOR=1000.0   #EN Mpc
 EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 EXTRAS += -DSTORE_VELOCITIES
 #EXTRAS += -DSTORE_IDS
@@ -20,7 +20,7 @@ LIBS   := -lm
 
 MAKEFILE := Makefile
 
-OBJS := leesnap.o grid.o variables.o calcula_pares_random.o
+OBJS := leesnap.o variables.o calcula_pares_random.o
 
 HEADERS := $(patsubst %.o,$.h,$(OBJS))
 

@@ -14,12 +14,12 @@ struct cosmoparam
 		double  hparam      ;  /* Parámetro de Hubble adimensional      */
 		double  lbox        ;  /* Lado del box [Kpc / h]                */
 		double  Mpart       ;  /* Masa de la partícula [10^10 Msol / h] */
-		int     npart       ;  /* Número de partículas                  */
 		double  redshift		;  /* Redshift                              */
 		double  aexp     		;  /*                                       */
 		double  Hubble_a    ;  /*                                       */
 		double  soft        ;  /* Softening [kpc / h]                   */
-    int     ngrup       ;  /* Numero de grupos                      */
+		type_int  npart     ;  /* Número de partículas                  */
+    type_int  ngrup     ;  /* Numero de grupos                      */
 } cp;
 
 #endif

@@ -7,6 +7,8 @@
 #include <vector>
 #include <functional>
 #include <algorithm>
+#include <queue>
+#include <utility> 
 
 #include "variables.hh"
 #include "cosmoparam.hh"
@@ -158,35 +160,88 @@
 
 #endif
 
-static void DLU(const type_int id, const type_int pre, std::vector<std::vector<type_int> > &adj, type_int *Padre, type_int *Rank)
+static void DLU(const type_int source, std::vector<std::vector<type_int> > &adj, type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restrict__ Weight)
 {
-  type_int k, idv;
+  type_int  k, u, v;
+	type_real d, r, w;
+	type_real vdir[3];
 
-  Padre[id] = pre;
-  Rank[id]  = adj[id].size();
+  // we use greater instead of less to turn max-heap into min-heap
+  std::priority_queue<std::pair<type_real, type_int>, \
+	std::vector<std::pair<type_real, type_int> >, \
+	std::greater<std::pair<type_real, type_int> > > queue;
 
-  for(k=0;k<Rank[id];k++)
+  queue.push(std::make_pair(Weight[source], source));
+
+  while (!queue.empty()) 
   {
-    idv = adj[id][k];
-    if(idv != pre)
-      DLU(idv,id,adj,Padre,Rank);
-  }
+ 
+		d = queue.top().first;
+	  u = queue.top().second;
 
-  adj[id].clear();
+		queue.pop();
+
+		// Because we leave old copies of the vertex in the priority queue
+		// (with outdated higher distances), we need to ignore it when we come
+		// across it again, by checking its distance against the minimum distance
+		if(d > Weight[u]) continue;
+
+  	Rank[u]  = adj[u].size();
+
+  	for(k=0;k<Rank[u];k++)
+		{
+	    v = adj[u][k];
+
+			if(Padre[u] == v) continue;
+
+	    vdir[0] = Gr[v].Pos[0] - Gr[u].Pos[0];
+  	  vdir[1] = Gr[v].Pos[1] - Gr[u].Pos[1];
+    	vdir[2] = Gr[v].Pos[2] - Gr[u].Pos[2];
+
+	    #ifdef PERIODIC
+  	  vdir[0] = vdir[0] >= cp.lbox*0.5 ? vdir[0]-cp.lbox : vdir[0];
+    	vdir[0] = vdir[0] < -cp.lbox*0.5 ? vdir[0]+cp.lbox : vdir[0];
+
+	    vdir[1] = vdir[1] >= cp.lbox*0.5 ? vdir[1]-cp.lbox : vdir[1];
+  	  vdir[1] = vdir[1] < -cp.lbox*0.5 ? vdir[1]+cp.lbox : vdir[1];
+
+	    vdir[2] = vdir[2] >= cp.lbox*0.5 ? vdir[2]-cp.lbox : vdir[2];
+  	  vdir[2] = vdir[2] < -cp.lbox*0.5 ? vdir[2]+cp.lbox : vdir[2];
+    	#endif
+
+    	r = -((type_real)Gr[u].NumPart*(type_real)Gr[v].NumPart)/(vdir[0]*vdir[0]+vdir[1]*vdir[1]+vdir[2]*vdir[2]);
+
+      w = d + r;
+
+	    if (w < Weight[v]) 
+			{
+	      Weight[v] = w;
+	      Padre[v]  = u;
+	      queue.push(std::make_pair(Weight[v], v));
+	    }
+     }
+
+     adj[u].clear();
+
+  }
 
   return;
 
 }
- 
+
 extern void DL(std::vector<std::pair<type_int,type_int> > &mass, std::vector<std::vector<type_int> > &vec, \
 type_int * __restrict__ Padre, type_int * __restrict__ Rank)
 {
-  type_int i;
+  type_int  i;
+	type_real *Weight;
 
-   for(i=0;i<cp.ngrup;i++)
+	Weight = (type_real *) malloc(cp.ngrup*sizeof(type_real));
+
+  for(i=0;i<cp.ngrup;i++)
   {
     Padre[i] = cp.ngrup;
     Rank[i]  = 0;
+    Weight[i] = 0.0f;
 
     if(vec[i].size()>0)
       mass.push_back(std::make_pair(Gr[i].NumPart,i));
@@ -199,12 +254,21 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank)
     type_int k = mass[i-1].second;
 
     if(Padre[k]==cp.ngrup)
-      DLU(k,Padre[k],vec,Padre,Rank);
+      DLU(k,vec,Padre,Rank,Weight);
   }
+ 	
+	#ifdef NEW
+  while(!mass.empty())
+    mass.pop_back();
 
-  //for(i=0;i<cp.ngrup;i++)     
-  //  if(vec[i].size()==1)
-  //    DLU(i,Padre[i],vec,Padre,Rank);
+  for(i=0;i<cp.ngrup;i++)
+  {
+    if(Rank[i]>0)
+      mass.push_back(std::make_pair(Weight[i],i)); 
+  }
+	#endif
 
-  return;
+  sort(mass.begin(),mass.end(), std::greater<std::pair<type_real, type_int> > ());
+
+	free(Weight);
 }

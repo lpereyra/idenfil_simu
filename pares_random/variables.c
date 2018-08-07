@@ -72,32 +72,6 @@ void init_variables(int argc, char **argv){
     }
   }
 
-  if(!fscanf(pfin,"%d  \n",&nbins))
-  {
-    sprintf(message,"can't read file `%s`\nneed Nbins\n",filename);RED(message);
-    exit(0);
-  }
-
-  #ifdef PRECDOUBLE
-  if(!fscanf(pfin,"%lf  \n",&len_min))
-  #else
-  if(!fscanf(pfin,"%f   \n",&len_min))
-  #endif
-  {
-    sprintf(message,"can't read file `%s`\nneed LEN MIN SEPARATION\n",filename);RED(message);
-    exit(0);
-  }
-
-  #ifdef PRECDOUBLE
-  if(!fscanf(pfin,"%lf  \n",&len_max))
-  #else
-  if(!fscanf(pfin,"%f   \n",&len_max))
-  #endif
-  {
-    sprintf(message,"can't read file `%s`\nneed LEN MAX SEPARATION\n",filename);RED(message);
-    exit(0);
-  }
- 
   #ifdef MCRITIC
 
   #ifdef PRECDOUBLE
@@ -139,11 +113,8 @@ void init_variables(int argc, char **argv){
     sprintf(message,"%d overdensity %.2f\n",i,fof[i]);BLUE(message);
     fof[i] = cbrt(1./(1.+fof[i]));
   }
-  sprintf(message,"Num bins:               %d\n",nbins);BLUE(message);
-  sprintf(message,"LEN_MIN [Mpc]   %f\n",len_min);RED(message);
-  sprintf(message,"LEN_MAX [Mpc]   %f\n",len_max);RED(message);
-  len_min *= 1000.;
-  len_max *= 1000.;
+  sprintf(message,"LEN_MIN [Kpc]   %f\n",(type_real)LEN_MIN);RED(message);
+  sprintf(message,"LEN_MAX [Kpc]   %f\n",(type_real)LEN_MAX);RED(message);
 
   #ifdef MCRITIC
   sprintf(message,"M_CRIT [10^10 Msol / h]  %f\n",m_critica);RED(message);
@@ -159,9 +130,7 @@ void init_variables(int argc, char **argv){
   #ifdef LONGIDS
   BLUE("  LONGIDS\n");
   #endif
-  #ifdef MPC
   sprintf(message,"  POSFACTOR = 1000.\n");BLUE(message);
-  #endif
   #ifdef VELFACTOR
   sprintf(message,"  VELFACTOR = %f\n",VELFACTOR);BLUE(message);
   #endif

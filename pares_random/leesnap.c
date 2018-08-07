@@ -7,40 +7,17 @@
 #include "leesnap.h"
 #include "colores.h"
 
-void read_gadget(void){
+extern void leeheader(void)
+{
+
+  FILE *pf;
+  type_int d1,d2;
   char filename[200];
-  int  ifile,ind;
-  size_t total_memory;
 
   if(snap.nfiles>1)
     sprintf(filename,"%s%s.0",snap.root,snap.name);
   else
     sprintf(filename,"%s%s",snap.root,snap.name);
-
-  leeheader(filename);
-
-  /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
-  total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
-  printf("Allocating %.5zu Gb for %d particles\n",total_memory,cp.npart);
-  P = (struct particle_data *) malloc(cp.npart*sizeof(struct particle_data));
-  assert(P != NULL);
-
-  /***** LEE POS Y VEL DE LAS PARTICULAS ***********************/
-  for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++){
-    if(snap.nfiles>1)
-      sprintf(filename,"%s%s.%d",snap.root,snap.name,ifile);
-    else
-      sprintf(filename,"%s%s",snap.root,snap.name);
-
-    lee(filename,P,&ind);
-  }
-
-  fprintf(stdout,"End reading snapshot file(s)...\n"); fflush(stdout);
-}
-
-void leeheader(char *filename){
-  FILE *pf;
-  int d1,d2;
 
   pf = fopen(filename,"r");
   if(pf == NULL){
@@ -75,7 +52,7 @@ void leeheader(char *filename){
   printf("*********************************** \n");
   printf("*   Parametros de la simulacion   * \n");
   printf("*********************************** \n");
-  printf("  Numero de particulas = %d \n", cp.npart);
+  printf("  Numero de particulas = %u \n", cp.npart);
   printf("  Lado del box = %g \n", cp.lbox);
   printf("  Redshift = %g \n", cp.redshift);
   printf("  Omega Materia = %g \n", cp.omegam);
@@ -87,112 +64,21 @@ void leeheader(char *filename){
   printf("*********************************** \n");
 }
 
-void lee(char *filename, struct particle_data *Q, int *ind){
-  FILE *pf;
-  int d1, d2;
-  int k, pc, n;
-  #ifdef MPC 
-  type_real POSFACTOR = 1000.;
-  #endif
-
-  type_real r[3];
-  #ifdef STORE_VELOCITIES
-  type_real v[3];
-  #endif
-  #ifdef STORE_IDS
-  type_int id;
-  #endif
- 
-  pf = fopen(filename,"r");
-  if(pf == NULL){
-    fprintf(stderr,"can't open file `%s`\n",filename);
-    exit(EXIT_FAILURE);
-  }
-
-  fprintf(stdout,"Reading file: %s \n",filename); fflush(stdout);
-
-  fread(&d1, sizeof(d1), 1, pf);
-  fread(&header, sizeof(header), 1, pf);
-  fread(&d2, sizeof(d2), 1, pf);
-  assert(d1==d2);
-
-  fread(&d1, sizeof(d1), 1, pf);
-  for(k = 0, pc = 0; k < N_part_types; k++){
-    for(n = 0; n < header.npart[k]; n++){
-      fread(&r[0], size_real, 3, pf);
-      if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        #ifdef MPC
-          Q[*ind+pc].Pos[0] = r[0]*POSFACTOR;
-          Q[*ind+pc].Pos[1] = r[1]*POSFACTOR;
-          Q[*ind+pc].Pos[2] = r[2]*POSFACTOR;
-        #else
-          Q[*ind+pc].Pos[0] = r[0];
-          Q[*ind+pc].Pos[1] = r[1];
-          Q[*ind+pc].Pos[2] = r[2];
-        #endif
-        pc++;
-      }
-    }
-  }
-  fread(&d2, sizeof(d2), 1, pf);
-  assert(d1==d2);
-
-  fread(&d1, sizeof(d1), 1, pf);
-#ifdef STORE_VELOCITIES
-  for(k = 0, pc = 0; k < N_part_types; k++){
-    for(n = 0; n < header.npart[k]; n++){
-      fread(&v[0], size_real, 3, pf);
-      if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        Q[*ind+pc].Vel[0] = v[0]*VELFACTOR;
-        Q[*ind+pc].Vel[1] = v[1]*VELFACTOR;
-        Q[*ind+pc].Vel[2] = v[2]*VELFACTOR;
-        pc++;
-      }
-    }
-  }
-#else
-  fseek(pf,d1,SEEK_CUR);
-#endif
-  fread(&d2, sizeof(d2), 1, pf);
-  assert(d1==d2);
-
-  fread(&d1, sizeof(d1), 1, pf);
-#ifdef STORE_IDS
-  for(k = 0, pc = 0; k < N_part_types; k++){
-    for(n = 0; n < header.npart[k]; n++){
-      fread(&id, size_int, 1, pf);
-      if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        Q[*ind+pc].id = id;
-        pc++;
-      }
-    }
-  }
-#else
-  fseek(pf,d1,SEEK_CUR);
-#endif
-  fread(&d2, sizeof(d2), 1, pf);
-  assert(d1==d2);
-
-  *ind += pc;
-  
-  fclose(pf);
-}
-
-void read_grup_fof(type_real *fof)
+extern void read_grup_fof(type_real *fof)
 {
   char  filename[200];
-  int   i;
+  type_int   i;
   FILE  *pfin;
  
   #ifdef MCRITIC
-    sprintf(filename,"../%2d_%.2f_centros_cut_%.2f.bin",snap.num,fof[1],m_critica);
+    sprintf(filename,"../%.2d_%.2f_centros_cut_%.2f.bin",snap.num,fof[1],m_critica);
   #else
     sprintf(filename,"../../%.2d_%.2f_centros.bin",snap.num,fof[1]);
   #endif
 
   pfin = fopen(filename,"rb"); 
 
-  fread(&cp.ngrup,sizeof(int),1,pfin);
+  fread(&cp.ngrup,sizeof(type_int),1,pfin);
 
   fprintf(stdout,"Grupos %d\n",cp.ngrup);
   fflush(stdout);
@@ -201,12 +87,12 @@ void read_grup_fof(type_real *fof)
 
   for(i=0;i<cp.ngrup;i++)
   {
-    fread(&Gr[i].save,sizeof(int),1,pfin);
-    fread(&Gr[i].id,sizeof(int),1,pfin);
+    fread(&Gr[i].save,sizeof(type_int),1,pfin);
+    fread(&Gr[i].id,sizeof(type_int),1,pfin);
     fread(&Gr[i].Pos[0],sizeof(float),1,pfin);
     fread(&Gr[i].Pos[1],sizeof(float),1,pfin);
     fread(&Gr[i].Pos[2],sizeof(float),1,pfin);
-    fread(&Gr[i].NumPart,sizeof(int),1,pfin);
+    fread(&Gr[i].NumPart,sizeof(type_int),1,pfin);
   }
 
   fclose(pfin);

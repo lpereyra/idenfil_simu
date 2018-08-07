@@ -17,19 +17,13 @@ int main(int argc, char **argv)
   int NpartCut;
   double MassCut;
   double start,end;
-  char filename[200];
 
   TIMER(start);
   
   init_variables(argc,argv);
   omp_set_nested(1);
 
-  if(snap.nfiles>1)
-    sprintf(filename,"%s%s.0",snap.root,snap.name);
-  else
-    sprintf(filename,"%s%s",snap.root,snap.name);
-
-  leeheader(filename);
+  leeheader();
 
   read_grup_fof(fof);
 
@@ -48,7 +42,7 @@ int main(int argc, char **argv)
 
   /////////////////////////////////////////////////////////////////////////
   
-  free(P);
+  free(Gr);
 
   TIMER(end);
   printf("Total time %f\n",end-start);

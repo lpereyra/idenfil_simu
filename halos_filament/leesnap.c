@@ -7,9 +7,9 @@
 #include "leesnap.h"
 #include "colores.h"
 
-void leeheader(char *filename){
+static void leeheader(char *filename){
   FILE *pf;
-  int d1,d2;
+  type_int d1,d2;
 
   pf = fopen(filename,"r");
   if(pf == NULL){
@@ -44,7 +44,7 @@ void leeheader(char *filename){
   printf("*********************************** \n");
   printf("*   Parametros de la simulacion   * \n");
   printf("*********************************** \n");
-  printf("  Numero de particulas = %d \n", cp.npart);
+  printf("  Numero de particulas = %u \n", cp.npart);
   printf("  Lado del box = %g \n", cp.lbox);
   printf("  Redshift = %g \n", cp.redshift);
   printf("  Omega Materia = %g \n", cp.omegam);
@@ -125,7 +125,7 @@ void read_segment(int NNN, type_real *fof)
 void read_grup_fof(type_real *fof)
 {
   char  filename[200];
-  int   i;
+  type_int   i;
   FILE  *pfin;
  
   #ifdef MCRITIC
@@ -136,7 +136,7 @@ void read_grup_fof(type_real *fof)
 
   pfin = fopen(filename,"rb"); 
 
-  fread(&cp.ngrup,sizeof(int),1,pfin);
+  fread(&cp.ngrup,sizeof(type_int),1,pfin);
 
   fprintf(stdout,"Grupos %d\n",cp.ngrup);
   fflush(stdout);
@@ -145,12 +145,12 @@ void read_grup_fof(type_real *fof)
 
   for(i=0;i<cp.ngrup;i++)
   {
-    fread(&Gr[i].save,sizeof(int),1,pfin);
-    fread(&Gr[i].id,sizeof(int),1,pfin);
-    fread(&Gr[i].Pos[0],sizeof(float),1,pfin);
-    fread(&Gr[i].Pos[1],sizeof(float),1,pfin);
-    fread(&Gr[i].Pos[2],sizeof(float),1,pfin);
-    fread(&Gr[i].NumPart,sizeof(int),1,pfin);
+    fread(&Gr[i].save,sizeof(type_int),1,pfin);
+    fread(&Gr[i].id,sizeof(type_int),1,pfin);
+    fread(&Gr[i].Pos[0],sizeof(type_real),1,pfin);
+    fread(&Gr[i].Pos[1],sizeof(type_real),1,pfin);
+    fread(&Gr[i].Pos[2],sizeof(type_real),1,pfin);
+    fread(&Gr[i].NumPart,sizeof(type_int),1,pfin);
   }
 
   fclose(pfin);

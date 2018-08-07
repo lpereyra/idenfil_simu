@@ -10,7 +10,6 @@
 #include "timer.h"
 #include "iden.h"
 #include "colores.h"
-//#include "peano.h"
 #include "grid.h"
 
 int main(int argc, char **argv)

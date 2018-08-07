@@ -223,7 +223,7 @@ def read_grup(Path_gr,Name_gr,POSFACTOR):
 
 ################################
 
-def read_seg(Path_seg,Name_seg,Mnum,POSFACTOR):
+def read_seg(Path_seg,Name_seg,POSFACTOR):
 
   filename = "%s%s" % (Path_seg,Name_seg)
   print "Reading file: %s" % (filename)
@@ -231,13 +231,10 @@ def read_seg(Path_seg,Name_seg,Mnum,POSFACTOR):
   binario = open(filename,"rb")
   N = np.fromfile(binario, dtype=np.int32, count=1)[0]
 
-  R = np.empty(N,dtype=np.float32)
-
   segment = []
   for i in range(N):
     chain = np.fromfile(binario, dtype=np.int32, count=1)[0]
     idp = np.fromfile(binario, dtype=np.int32, count=chain)
-    R[i] = 1.0*Mnum[idp[0]]/Mnum[idp[-1]]
     segment.append(idp)
 
   print "%d segmentos" % (N)
@@ -255,9 +252,9 @@ def read_seg(Path_seg,Name_seg,Mnum,POSFACTOR):
 
   segment = np.asarray(segment) # transforma
   #prop["rms"]  /= prop["long"]
-  #prop["long"] /= POSFACTOR
+  prop["long"] /= POSFACTOR
 
-  return segment,prop,R
+  return segment,prop
   
 def read_datos(Nfile, Path_snap, Name_snap, POSFACTOR):
 

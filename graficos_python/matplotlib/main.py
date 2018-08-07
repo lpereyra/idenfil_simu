@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
   print Nsnap, Path_snap, Name_snap
 
-  sli = [0,30.0] #in Mpc
+  sli = [0,10.0] #in Mpc
 
   #P, lbox, Mpart = dat.read_gadget(Nsnap,Path_snap,Name_snap,POSFACTOR,sli)
   #plt.scatter(P["Pos"][:,0], P["Pos"][:,1], alpha=0.5, s=0.5, c='b', edgecolors=None)
@@ -23,7 +23,7 @@ if __name__ == '__main__':
   POSFACTOR = 1. #estan en Mpc
   lbox, Mpart = dat.read_datos(Nsnap,Path_snap,Name_snap,POSFACTOR)
 
-  mass_cut  = 2000.  # Mcut
+  mass_cut  = 2000. # Mcut
   POSFACTOR = 1000. # estan en Kpc
   Gr = dat.read_grup(Path_gr,Name_gr,POSFACTOR)
   mask = (Gr["Pos"][:,2]>sli[0]) * (Gr["Pos"][:,2]<sli[1])
@@ -43,26 +43,21 @@ if __name__ == '__main__':
   m = Gr["Pos"][:,2]<0
   Gr["Pos"][:,0][m] = Gr["Pos"][:,0][m]+lbox
 
-  #Tree = cKDTree(Gr["Pos"][mask],boxsize=lbox) 
-  #counts = Tree.query_ball_point(Gr["Pos"][mask], 5.0)	# vecinos dentro de r Mpc
-  #counts = 1.0*np.asarray(map(len,counts))/np.max(counts)
-
   # slice
   plt.scatter(Gr["Pos"][mask_num][:,0],Gr["Pos"][mask_num][:,1],s=5.0,c='g', edgecolors=None)
   print "Quedan %d Grupos Mayor a %.2g" % (np.sum(mask_num),mass_cut*1.e10)
-  mass_cut  = 100.  # Mcut
-  mask_num = mask * (Mpart*Gr["NumPart"]>mass_cut)
-  plt.scatter(Gr["Pos"][mask_num][:,0],Gr["Pos"][mask_num][:,1],s=3.0,c='b', edgecolors=None)
 
+  #mass_cut  = 100.  # Mcut
+  #mask_num = mask * (Mpart*Gr["NumPart"]>mass_cut)
+  #plt.scatter(Gr["Pos"][mask_num][:,0],Gr["Pos"][mask_num][:,1],s=3.0,c='b', edgecolors=None)
 
   del mask_num
 
-  Seg, PSeg, R = dat.read_seg(Path_seg,Name_seg,Gr["NumPart"],POSFACTOR)
+  Seg, PSeg = dat.read_seg(Path_seg,Name_seg,POSFACTOR)
 
   mask_fil = (PSeg["flag"]==2)      #Tipo 2
   Seg      = Seg[mask_fil] 
   PSeg     = PSeg[mask_fil] 
-  R        = R[mask_fil] 
  
   print "Quedan %d Segmentos Tipo 2" % (np.sum(mask_fil))
  

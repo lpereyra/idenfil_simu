@@ -1,15 +1,24 @@
 #ifndef CALCULA_H
 #define CALCULA_H
 
-void crea_random(int NpartCut);
-void sort_halos();
-void reorder_grups(int *Id);
-int compare_descend(const void *a, const void *b);
-void find_cut(int *k, int NCut);
+extern void crea_random(int NpartCut);
 
 struct sort_prop{
   int index;
   type_real mass;
+};
+
+struct info 
+{
+  type_int  id_a;
+  type_int  id_b;
+  type_real dist;
+};
+
+struct data 
+{
+  type_int        nsize;
+  struct info * matrix;
 };
 
 #endif

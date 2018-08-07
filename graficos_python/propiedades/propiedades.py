@@ -1,79 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import lector as dat
 import sys
-
-################################
-
-propiedadestype = np.dtype([
-    ("flag"       , np.int32), 
-    ("npart"      , np.int32), 
-    ("q"          , np.float32), 
-    ("long"       , np.float32), 
-    ("elong"      , np.float32), 
-    ("rms"        , np.float32), 
-    ])
-
-################################
-
-################################
-
-def init(name):
-
-  contenido = []
-
-  archivo = open(name,"r")
-  for linea in archivo.readlines():
-    contenido.append(linea.strip('\n'))
-  archivo.close()
-
-  Ngad      = np.int32(contenido[0])
-  Path_gad  = contenido[1]
-  Name_gad  = contenido[2]
-  Path_gr   = contenido[3]
-  Name_gr   = contenido[4]
-  Path_seg  = contenido[5]
-  Name_seg  = contenido[6]
-
-  return Ngad,Path_gad,Name_gad,\
-         Path_gr,Name_gr,\
-         Path_seg,Name_seg,\
-
-################################
-
-################################
-
-def read_prop(Path_seg,Name_seg,POSFACTOR):
-
-  filename = "%s%s" % (Path_seg,Name_seg)
-  filename = filename.replace('segmentos','propiedades')
-
-  print "Reading file: %s" % (filename)
-
-  binario = open(filename,"rb")
-  N = np.fromfile(binario, dtype=np.int32, count=1)[0]
-  prop = np.fromfile(binario, dtype=propiedadestype)
-
-  print "Lee propiedades de %d segmentos" % (N)
-
-  #prop["rms"]  /= prop["long"]
-  prop["long"] /= POSFACTOR
-
-  return prop
-
-################################
 
 if __name__ == '__main__':
 
   Nsnap, Path_snap, Name_snap, \
   Path_gr, Name_gr, \
   Path_seg, Name_seg \
-  = init(sys.argv[1])
+  = dat.init(sys.argv[1])
 
   POSFACTOR = 1000. #estan en Kpc
-  data = read_prop(Path_seg,Name_seg,POSFACTOR)
+  data = dat.read_prop(Path_seg,Name_seg,POSFACTOR)
 
   num_bins = 100
-  mask = (data["flag"]>=2)
+  mask = (data["flag"]==2)
   print "Mask Segmentos",sum(mask)
   mask = (data["npart"]>2)*mask
   print "Segmentos mask N>2",len(data["npart"][mask])

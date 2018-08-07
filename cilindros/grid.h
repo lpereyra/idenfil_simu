@@ -18,9 +18,8 @@ struct gridst
   #endif
 } grid;
 
-
-void grid_init(void);
-void grid_build(void);
-void grid_free(void);
+extern void grid_init(void);
+extern void grid_build(void);
+extern void grid_free(void);
 
 #endif

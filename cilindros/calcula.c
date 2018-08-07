@@ -15,7 +15,7 @@
   #include "bitmask.h"
 #endif
 
-static void set_name(char * name, const type_int NNN, char * prefix)
+static void set_name(char * name, const type_int NNN, const char * prefix)
 {
 
   #ifdef FIXED_SEPARATION
@@ -511,6 +511,8 @@ static void stadistic(type_int n, type_real *MAX, type_real *MIN, type_real *LMA
   calc_part(Gr[Seg[i].list[0]].Pos,Seg[i].Vmedia,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
   #endif
 
+  //fprintf(stdout,"%d %f %f %f - ",l,Gr[Seg[i].list[0]].Pos[0],Gr[Seg[i].list[0]].Pos[1],Gr[Seg[i].list[0]].Pos[2]);
+
   nodo[l] = lenrbin; 
 
   for(j=0;j<ncil;j++)
@@ -558,6 +560,7 @@ static void stadistic(type_int n, type_real *MAX, type_real *MIN, type_real *LMA
       #endif
     }
 
+    //fprintf(stdout,"%d %f %f %f - ",l,Pos_cent[0],Pos_cent[1],Pos_cent[2]);
     #ifdef SAVEPART
     calc_part(Pos_cent,Seg[i].Vmedia,vpart,size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
     #else
@@ -600,6 +603,7 @@ static void stadistic(type_int n, type_real *MAX, type_real *MIN, type_real *LMA
         #endif
       }
 
+      //fprintf(stdout,"%d %f %f %f - ",l,Pos_cent[0],Pos_cent[1],Pos_cent[2]);
       #ifdef SAVEPART
       calc_part(Pos_cent,Seg[i].Vmedia,vpart,size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);             
       #else
@@ -642,6 +646,7 @@ static void stadistic(type_int n, type_real *MAX, type_real *MIN, type_real *LMA
     vdir[idim] *= (1./r);
   ///////////////////////////////////////////////////////
 
+  //fprintf(stdout,"%d %f %f %f - ",l,Pos_cent[0],Pos_cent[1],Pos_cent[2]);
   #ifdef SAVEPART
   calc_part(Gr[Seg[i].list[Seg[i].size-1]].Pos,Seg[i].Vmedia,vpart,size_part,vsize,vmean,vquad,vdir,vmean_par,vquad_par,vmean_perp,vquad_perp,rcil2,rlong_2,ncil);
   #else
@@ -659,6 +664,7 @@ static void stadistic(type_int n, type_real *MAX, type_real *MIN, type_real *LMA
 
   assert(l==nbins);
 
+  //fprintf(stdout,"len %f %f\n",Seg[i].len,rsep);
   free(volinv);
 }
 
@@ -1407,7 +1413,7 @@ extern void propiedades(const type_int NNN, const type_real *fof)
   FILE *pfextend;
   #endif
   struct dat_struct *dat;
-  const type_real cut_len = 5000.;            // en Kpc
+  const type_real cut_len = 10000.;            // en Kpc
 
   dat = (struct dat_struct *) malloc(cp.nseg*sizeof(struct dat_struct));
 
@@ -1421,6 +1427,8 @@ extern void propiedades(const type_int NNN, const type_real *fof)
   for(i=0;i<cp.nseg;i++)
   {
     if(Seg[i].flag != 2) continue;
+
+    if(Seg[i].elong < 0.7) continue;
 
     if((Seg[i].len < cut_len-1000.0) || (Seg[i].len > cut_len+1000.0)) continue;
 
@@ -1560,7 +1568,7 @@ extern void propiedades(const type_int NNN, const type_real *fof)
     rcil2  = (type_real *) malloc(binsper*sizeof(type_real));
 
     rsep    = Seg[i].len/(type_real)(nbins-1);
-    rlong   = 2.0*rsep; 
+    rlong   = rsep; 
     rlong_2 = rlong*0.5;
 
     #ifdef FIXED_SEPARATION
@@ -1673,7 +1681,7 @@ extern void propiedades(const type_int NNN, const type_real *fof)
     rcil2  = (type_real *) malloc(binsper*sizeof(type_real));
 
     rsep    = Seg[i].len/(type_real)(nbins-1);
-    rlong   = 2.0*rsep; 
+    rlong   = rsep; 
     rlong_2 = rlong*0.5;
 
     #ifdef FIXED_SEPARATION

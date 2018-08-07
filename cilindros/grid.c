@@ -7,7 +7,7 @@
 #include "grid.h"
 #include "cosmoparam.h"
 
-void grid_init(void)
+extern void grid_init(void)
 {
   unsigned long i;
   unsigned long nalloc = grid.ngrid*grid.ngrid*grid.ngrid;
@@ -51,8 +51,7 @@ inline unsigned long igrid(const long ix, const long iy, const long iz, const un
   return (ix * ngrid + iy) * ngrid + iz;
 }
 
-
-void grid_build(void)
+extern void grid_build(void)
 {
   unsigned long i, ix, iy, iz, ibox;
   double fac;
@@ -234,7 +233,7 @@ void grid_build(void)
 
 }
 
-void grid_free(void)
+extern void grid_free(void)
 {
   #ifdef REORDER
     if(grid.icell!=NULL) free(grid.icell);

@@ -67,6 +67,7 @@ int main(int argc, char **argv)
 	
 	Padre = (type_int *) malloc(cp.ngrup*sizeof(type_int));
   Rank =  (type_int *) malloc(cp.ngrup*sizeof(type_int));
+	
   DL(mass_orden,adjacency_list,Padre,Rank);
 
   fprintf(stdout,"Escribe\n");
@@ -125,8 +126,7 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
     i = mass_orden.back().second;
 
     //if(Padre[i]>=0)
-    //if(Rank[i]==1 && Padre[i]>=0)
-    if(Padre[i]<cp.ngrup)
+    if(Rank[i]<cp.ngrup && Padre[i]>=0)
     {
       aux.push_back(i);
       id = Padre[i];
@@ -167,11 +167,19 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
 
   assert(segmentos.size()==j);
 
-	set_name("segmentos",filename,NumPartCut,fof);
+	#ifdef NEW
+		set_name("new_segmentos",filename,NumPartCut,fof);
+	#else
+		set_name("segmentos",filename,NumPartCut,fof);
+	#endif
   pfout=fopen(filename,"w");
   fwrite(&j,sizeof(type_int),1,pfout);
 
-	set_name("propiedades",filename,NumPartCut,fof);
+	#ifdef NEW
+  	set_name("new_propiedades",filename,NumPartCut,fof);
+	#else
+	  set_name("propiedades",filename,NumPartCut,fof);
+	#endif
   pfpropiedades=fopen(filename,"w");
   fwrite(&j,sizeof(type_int),1,pfpropiedades);
 
@@ -279,7 +287,7 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
 
     r = sqrt(elong)/lenr;
 
-    assert(r<1.+1e-06);
+    //assert(r<1.+1e-06);
 
     k = (int)aux.size();
     rms /= (float)k;
