@@ -11,13 +11,13 @@
 #include "timer.hh"
 #include "colores.hh"
 #include "leesnap.hh"
-#include "pruned.hh"
+#include "prune.hh"
 
 #ifdef BRANCH_SURVIVE
   type_int N_part_survive;
 #endif
 
-static void Write_Segments(const type_int NumPartCut, std::vector<std::pair<type_int,type_int> > &mass_orden, \
+static void Write_Segments(const type_int NumPartCut, std::vector<std::pair<type_int,type_int> > &vec_orden, \
 type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restrict__ fof);
 
 int main(int argc, char **argv)
@@ -27,7 +27,7 @@ int main(int argc, char **argv)
   type_int NumPartCut;
   type_int *Padre, *Rank;
   std::vector<std::vector<type_int> > adjacency_list;
-  std::vector<std::pair<type_int,type_int> > mass_orden;
+  std::vector<std::pair<type_int,type_int> > vec_orden;
 
   TIMER(start);
 
@@ -35,7 +35,7 @@ int main(int argc, char **argv)
   omp_set_nested(1);
 
   // Lee archivos de la simulacion
-  read_gadget();
+  leeheader();
 
   MassCut = atof(argv[2]);
   NumPartCut = (type_int)(MassCut/cp.Mpart) ;  // Masa de la partícula [10^10 Msol / h]
@@ -67,19 +67,18 @@ int main(int argc, char **argv)
 	
 	Padre = (type_int *) malloc(cp.ngrup*sizeof(type_int));
   Rank =  (type_int *) malloc(cp.ngrup*sizeof(type_int));
-	
-  DL(mass_orden,adjacency_list,Padre,Rank);
+  DL(vec_orden,adjacency_list,Padre,Rank);
 
   fprintf(stdout,"Escribe\n");
   fflush(stdout);
 
-  Write_Segments(NumPartCut, mass_orden,Padre,Rank,fof);
+  Write_Segments(NumPartCut, vec_orden,Padre,Rank,fof);
 
   free(Gr);
   free(Padre);
   free(Rank);
   adjacency_list.clear();
-  mass_orden.clear();
+  vec_orden.clear();
 
   TIMER(end);
   fprintf(stdout,"Total time %f\n",end-start);
@@ -106,7 +105,7 @@ static void set_name(const char * prefix, char * name, const type_int NumPartCut
 	return;
 }
 
-static void Write_Segments(const type_int NumPartCut, std::vector<std::pair<type_int,type_int> > &mass_orden, \
+static void Write_Segments(const type_int NumPartCut, std::vector<std::pair<type_int,type_int> > &vec_orden, \
 type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restrict__ fof)
 {
   char filename[200];
@@ -120,13 +119,12 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
   std::vector<std::vector<type_int> > segmentos;
 
   j = 0;
-  while(!mass_orden.empty())
+  while(!vec_orden.empty())
   {
 
-    i = mass_orden.back().second;
+    i = vec_orden.back().second;
 
-    //if(Padre[i]>=0)
-    if(Rank[i]<cp.ngrup && Padre[i]>=0)
+    if(Padre[i]<cp.ngrup)
     {
       aux.push_back(i);
       id = Padre[i];
@@ -140,7 +138,6 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
           break;
         }
 
-        //if(Rank[id]>2)
         if(Gr[id].NumPart>NumPartCut && Padre[id]!=cp.ngrup)
         {
           aux.push_back(id);
@@ -156,13 +153,16 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
         id = Padre[id];               
       }
 
-      segmentos.push_back(aux);
+			if(aux.size()!=1) // es igual a uno, no entra al while
+			{
+				segmentos.push_back(aux);
+				j++;
+			}
 
       aux.clear();
-      j++;
     }
 
-    mass_orden.pop_back();
+    vec_orden.pop_back();
   }
 
   assert(segmentos.size()==j);
@@ -176,9 +176,9 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
   fwrite(&j,sizeof(type_int),1,pfout);
 
 	#ifdef NEW
-  	set_name("new_propiedades",filename,NumPartCut,fof);
+		set_name("new_propiedades",filename,NumPartCut,fof);
 	#else
-	  set_name("propiedades",filename,NumPartCut,fof);
+		set_name("propiedades",filename,NumPartCut,fof);
 	#endif
   pfpropiedades=fopen(filename,"w");
   fwrite(&j,sizeof(type_int),1,pfpropiedades);
@@ -212,7 +212,11 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
     fwrite(&k,sizeof(int),1,pfout);
     fwrite(&k,sizeof(int),1,pfpropiedades);
 
-    r = (float)Gr[aux[0]].NumPart/(float)Gr[id].NumPart;
+    r = (float)Gr[aux[0]].NumPart*cp.Mpart;
+    fwrite(&r,sizeof(float),1,pfpropiedades); // ESCRIBE LA MASA DE LA PRIMERA PUNTA
+    r = (float)Gr[id].NumPart*cp.Mpart;
+    fwrite(&r,sizeof(float),1,pfpropiedades); // ESCRIBE LA MASA DE LA SEGUNDA PUNTA
+    r = ((float)Gr[aux[0]].NumPart*cp.Mpart)/((float)Gr[id].NumPart*cp.Mpart);
     fwrite(&r,sizeof(float),1,pfpropiedades); // ESCRIBE LA RAZON DE MASAS
 
     dux = Gr[id].Pos[0] - Gr[aux[0]].Pos[0];
@@ -230,9 +234,13 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
     duz = duz < -cp.lbox*0.5 ? duz+cp.lbox : duz;
     #endif
 
-    elong = dux*dux+duy*duy+duz*duz;
+    elong = sqrt(dux*dux+duy*duy+duz*duz);
 
-    lenr = rms = 0.0;
+    dux *= (1.0f/elong);
+		duy *= (1.0f/elong);
+		duz *= (1.0f/elong);
+
+    lenr = rms = 0.0f;
 
     fwrite(&aux[0],sizeof(int),1,pfout);
 
@@ -276,18 +284,14 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
       dz = dz < -cp.lbox*0.5 ? dz+cp.lbox : dz;
       #endif
           
-      r = pow(dy*duz-dz*duy,2);
-      r += pow(dz*dux-dx*duz,2);
-      r += pow(dx*duy-dy*dux,2);
-      r /= elong;
-      
-      rms += r;
+      r = dx*dux+dy*dux+dz*dux;    //dot
+      r = dx*dx+dy*dy+dz*dz - r*r; //dist - dot
+      r = fabs(r);                 //por errores de redondeo
 
+      rms += r;
     }
 
-    r = sqrt(elong)/lenr;
-
-    //assert(r<1.+1e-06);
+    r = elong/lenr;
 
     k = (int)aux.size();
     rms /= (float)k;

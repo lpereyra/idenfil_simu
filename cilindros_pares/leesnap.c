@@ -177,7 +177,6 @@ void read_pares(int NNN, type_real *fof)
 {
   char  filename[200];
   int   i,k;
-  type_real mass_a,mass_b;
   FILE  *pf;
  
   #ifdef MCRITIC
@@ -210,15 +209,13 @@ void read_pares(int NNN, type_real *fof)
       assert(Seg[i].list[k]>=0);
     }
 
-
     fread(&Seg[i].len,sizeof(type_real),1,pf);
-    fread(&mass_a,sizeof(type_real),1,pf);
-    fread(&mass_b,sizeof(type_real),1,pf);
-    Seg[i].razon = mass_b/mass_a;
-
+    fread(&Seg[i].Mass[0],sizeof(type_real),1,pf);
+    fread(&Seg[i].Mass[1],sizeof(type_real),1,pf);
+    Seg[i].razon = Seg[i].Mass[0]/Seg[i].Mass[1];
     Seg[i].flag = 0;
-    Seg[i].flag = mass_a>=NNN*cp.Mpart ? Seg[i].flag+1: Seg[i].flag;
-    Seg[i].flag = mass_b>=NNN*cp.Mpart ? Seg[i].flag+1: Seg[i].flag;
+    Seg[i].flag = Seg[i].Mass[0]>=NNN*cp.Mpart ? Seg[i].flag+1: Seg[i].flag;
+    Seg[i].flag = Seg[i].Mass[1]>=NNN*cp.Mpart ? Seg[i].flag+1: Seg[i].flag;
   
     assert(Seg[i].flag==2);
   }

@@ -2,7 +2,7 @@
 EXTRAS += -DPERIODIC    #periodic boundary condition
 #EXTRAS += -DPRECDOUBLE         #Pos and vel in double precision
 #EXTRAS += -DLONGIDS            #IDs are long integer
-#EXTRAS += -DPOSFACTOR=1000.0   #Positions in simulation Mpc/h
+EXTRAS += -DPOSFACTOR=1000.0   #Positions in simulation Mpc/h
 #EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 EXTRAS += -DPRUNED
 EXTRAS += -DBRANCH_SURVIVE
@@ -22,7 +22,7 @@ LIBS   := -lm
 
 MAKEFILE := Makefile
 
-OBJS := variables.o leesnap.o pruned.o
+OBJS := variables.o leesnap.o prune.o
 
 HEADERS := $(patsubst %.o,$.hh,$(OBJS))
 

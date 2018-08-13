@@ -14,9 +14,16 @@ struct particle_data *P;
 type_int *Index;
 struct grup_data *Gr;
 
-static void leeheader(char *filename){
+extern void leeheader(void)
+{
   FILE *pf;
+  char filename[200];
   type_int d1,d2;
+
+  if(snap.nfiles>1)
+    sprintf(filename,"%s%s.0",snap.root,snap.name);
+  else
+    sprintf(filename,"%s%s",snap.root,snap.name);
 
   pf = fopen(filename,"r");
   if(pf == NULL){
@@ -61,25 +68,13 @@ static void leeheader(char *filename){
   printf("  Softening = %g\n",cp.soft);
   printf("*********************************** \n");
   printf("*********************************** \n");
-}
-
-extern void read_gadget(void)
-{
-  char filename[200];
-
-  if(snap.nfiles>1)
-    sprintf(filename,"%s%s.0",snap.root,snap.name);
-  else
-    sprintf(filename,"%s%s",snap.root,snap.name);
-
-  leeheader(filename);
 
   GREEN("********** IMPORTANTE ***********\n");
   cp.lbox *= POSFACTOR;
   sprintf(filename,"Reescala\n");GREEN(filename);
   GREEN("**********************************\n");
 
-  return;
+	return;
 }
 
 extern void read_grup_fof(type_real prefix)

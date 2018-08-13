@@ -1,7 +1,7 @@
 #ifndef LEESNAP_H
 #define LEESNAP_H
 
-extern void read_gadget(void);
+extern void leeheader(void);
 extern void read_grup_fof(type_real prefix);
 extern void read_mst(std::vector<std::vector<type_int> > &adjacency_list, type_real * __restrict__ fof);
 

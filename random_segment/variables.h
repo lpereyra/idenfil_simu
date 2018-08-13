@@ -45,6 +45,7 @@ struct segmentstd
   int   size;
   int   *list;
   int   flag;
+  float Mass[2];
   float razon;
   float len;
   float elong;
