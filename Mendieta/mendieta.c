@@ -52,8 +52,8 @@ int main(int argc, char **argv)
     P.z[i] -= pmin[2];
   }
 
-  cp.lbox = pmax[0]-pmin[0];
-  for(i = 1; i < 3; i++)
+  cp.lbox = 0.0f;
+  for(i = 0; i < 3; i++)
     if(cp.lbox < (pmax[i] - pmin[i])) cp.lbox = (pmax[i] - pmin[i]);
 
   cp.lbox *= 1.001;
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
     fprintf(stdout, "\nBegins Identification : Step %d of %d \n",i+1,nfrac);
     
     iden.r0[i]  = fof[i];
-    iden.r0[i] *= cbrt(cp.Mpart*1.0E10/cp.omegam/RHOCRIT)*1000.0;
+    iden.r0[i] *= cbrt(cp.Mpart*1.0E10/cp.omegam/RHOCRIT)*1000.0f; //EN KPC
 
     if(iden.r0[i] <= cp.soft)
     {
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
       iden.r0[i] = cp.soft;
     }
 
-    fprintf(stdout,"Linking length = %f \n",iden.r0[i]);
+    fprintf(stdout,"Linking length %d = %f \n",i,iden.r0[i]);
   }
 
   iden.nobj = cp.npart;

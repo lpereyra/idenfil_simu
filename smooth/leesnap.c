@@ -142,8 +142,8 @@ extern void read_segment(type_int NNN, type_real *fof)
   {  
     fread(&Seg[i].flag,sizeof(type_int),1,pf);
     fread(&k,sizeof(type_int),1,pf);
-    fread(&Seg[i].Mass[0],sizeof(type_real),1,pf);
-    fread(&Seg[i].Mass[1],sizeof(type_real),1,pf);
+    fread(&Seg[i].Mass[0],sizeof(type_real),2,pf);
+    fread(&Seg[i].Vnodos[0],sizeof(type_real),6,pf);
     fread(&Seg[i].razon,sizeof(type_real),1,pf);
     fread(&Seg[i].len,sizeof(type_real),1,pf);
     fread(&Seg[i].elong,sizeof(type_real),1,pf);

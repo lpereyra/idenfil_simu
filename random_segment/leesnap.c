@@ -110,8 +110,8 @@ void read_segment(int NNN, type_real *fof)
   {  
     fread(&Seg[i].flag,sizeof(int),1,pf);
     fread(&k,sizeof(int),1,pf);
-    fread(&Seg[i].Mass[0],sizeof(float),1,pf);
-    fread(&Seg[i].Mass[1],sizeof(float),1,pf);
+    fread(&Seg[i].Mass[0],sizeof(float),2,pf);
+    fread(&Seg[i].Vnodos[0],sizeof(float),6,pf);
     fread(&Seg[i].razon,sizeof(float),1,pf);
     fread(&Seg[i].len,sizeof(float),1,pf);
     fread(&Seg[i].elong,sizeof(float),1,pf);

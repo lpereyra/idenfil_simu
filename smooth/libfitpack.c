@@ -97,7 +97,14 @@ extern void suaviza()
   #ifdef ITERA
   type_int j;
   #endif
- 
+
+  cp.lbox /= POSFACTOR;
+
+  for(i=0;i<cp.nseg;i++)
+    for(k=0;k<Seg[i].size;k++)
+      for(idim=0;idim<3;idim++)
+        Seg[i].Pos_list[IX(k,idim)] /= POSFACTOR;
+
   GREEN("********** SUAVIZA ***********\n");
   GREEN("******************************\n");
   fflush(stdout); 
@@ -212,11 +219,18 @@ extern void suaviza()
   GREEN("*******************************\n");
   fflush(stdout); 
 
+  cp.lbox *= POSFACTOR;
+
+  for(i=0;i<cp.nseg;i++)
+    for(k=0;k<Seg[i].size;k++)
+      for(idim=0;idim<3;idim++)
+        Seg[i].Pos_list[IX(k,idim)] *= POSFACTOR;
+ 
   GREEN("***** CALCULA PROPIEDADES *****\n");
   GREEN("*******************************\n");
   fflush(stdout); 
 
-  Pos_aux = (type_real *) malloc(3*sizeof(type_real));
+  Pos_aux = (type_real *) malloc(6*sizeof(type_real));
 
   for(i=0;i<cp.nseg;i++)
   {
@@ -245,20 +259,52 @@ extern void suaviza()
     diff = 0.0f;
     for(idim=0;idim<3;idim++)
     { 
-      Pos_aux[idim] = Seg[i].Pos_list[IX((Seg[i].size-1),idim)]-Seg[i].Pos_list[IX(0,idim)];
+      Pos_aux[idim+3] = Seg[i].Pos_list[IX((Seg[i].size-1),idim)]-Seg[i].Pos_list[IX(0,idim)];
    
       #ifdef PERIODIC
-      if(Pos_aux[idim] >  0.5*cp.lbox) Pos_aux[idim] -= cp.lbox;
-      if(Pos_aux[idim] < -0.5*cp.lbox) Pos_aux[idim] += cp.lbox;
+      if(Pos_aux[idim+3] >  0.5*cp.lbox) Pos_aux[idim+3] -= cp.lbox;
+      if(Pos_aux[idim+3] < -0.5*cp.lbox) Pos_aux[idim+3] += cp.lbox;
       #endif
   
-      diff += Pos_aux[idim]*Pos_aux[idim];
+      diff += Pos_aux[idim+3]*Pos_aux[idim+3];
     }
+
+    diff = sqrt(diff);
+
+    for(idim=0;idim<3;idim++)
+      Pos_aux[idim+3] /= diff;
   
-    Seg[i].elong = sqrt(diff)/Seg[i].len;
+    Seg[i].elong = diff/Seg[i].len;
 
     ///////////////////////////////////////////////////////////////////// 
+  
+    /////////////////////////////////////////////////////////////////////  
     
+    Seg[i].rms = 0.0f;
+    for(k=1;k<Seg[i].size-1;k++)
+    {
+      diff = 0.0f;
+      for(idim=0;idim<3;idim++)
+      { 
+        Pos_aux[idim] = Seg[i].Pos_list[IX(k,idim)]-Seg[i].Pos_list[IX(0,idim)];
+ 
+        #ifdef PERIODIC
+        if(Pos_aux[idim] >  0.5*cp.lbox) Pos_aux[idim] -= cp.lbox;
+        if(Pos_aux[idim] < -0.5*cp.lbox) Pos_aux[idim] += cp.lbox;
+        #endif
+
+      }
+
+      diff = Pos_aux[0]*Pos_aux[3]+Pos_aux[1]*Pos_aux[4]+Pos_aux[2]*Pos_aux[5];              // dot
+      diff = Pos_aux[0]*Pos_aux[0]+Pos_aux[1]*Pos_aux[1]+Pos_aux[2]*Pos_aux[2] - diff*diff;  // dist - dot
+      diff = fabs(diff);  // por errores de redondeo
+      Seg[i].rms += diff;
+
+    }
+
+    Seg[i].rms /= (type_int)Seg[i].size;
+    Seg[i].rms = sqrt(Seg[i].rms);
+
   }
 
   free(Pos_aux);

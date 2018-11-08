@@ -9,10 +9,6 @@
   #define VELFACTOR 1.0
 #endif
 
-#ifndef NPARTMIN
-  #define NPARTMIN 20
-#endif
-
 #ifndef LEN_MIN
   #define LEN_MIN 9000
 #endif
@@ -42,10 +38,18 @@ size_t size_int;
 
 struct grup_data
 {
-  int        save;
+  type_int   save;
   type_int   id;
   type_real  Pos[3];
-  int        NumPart;
+  type_int   NumPart;
+  type_real  Mass;
+  type_real  aa;
+  type_real  bb;
+  type_real  cc;
+  type_real  ParP;
+  type_real  vcm[3];
+  type_real  L[3];
+  type_real  evec[9];
 } *Gr;
 
 int  nfrac;

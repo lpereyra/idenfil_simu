@@ -9,7 +9,6 @@
 #include "leesnap.h"
 #include "timer.h"
 #include "colores.h"
-//#include "grid.h"
 #include "calcula_pares_random.h"
 
 int main(int argc, char **argv)

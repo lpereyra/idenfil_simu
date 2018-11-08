@@ -11,6 +11,10 @@
 #include "iden.h"
 #include "bitmask.h"
 
+#ifdef LOCK
+  static omp_lock_t *lock;
+#endif
+
 static inline long igrid(const long ix, const long iy, const long iz, const long ngrid) 
 {
   return (ix*ngrid+ iy)*ngrid + iz;
@@ -26,11 +30,7 @@ static inline type_int Raiz(type_int i, type_int * restrict ar)
 
 }
 
-#ifdef LOCK
-static inline void Unir(type_int u, type_int v, type_int * restrict ar, omp_lock_t * restrict lock)
-#else
 static inline void Unir(type_int u, type_int v, type_int * restrict ar)
-#endif
 {
  
   type_int z;
@@ -100,11 +100,7 @@ static inline void Unir(type_int u, type_int v, type_int * restrict ar)
 
 }
 
-#ifdef LOCK
-static void busv(const type_int ic, type_int * restrict test, omp_lock_t * restrict lock)
-#else
 static void busv(const type_int ic, type_int * restrict test)
-#endif
 {
 
   long ixc, iyc, izc, ibox;
@@ -165,11 +161,7 @@ static void busv(const type_int ic, type_int * restrict test)
             {
       	      if(xx*xx + yy*yy + zz*zz < iden.r0[niv])
               {
-	              #ifdef LOCK
-                  Unir(ic,i,gr[niv],lock);
-                #else
-                  Unir(ic,i,gr[niv]);
-                #endif
+                Unir(ic,i,gr[niv]);
               }
             }
             
@@ -375,9 +367,6 @@ extern void identification(void)
   type_int i, j, tid;
   type_int ngrid_old = grid.ngrid;
   type_int *test;  
-  #ifdef LOCK
-    omp_lock_t *lock; 
-  #endif
 
   gr = (unsigned int **) malloc(nfrac*sizeof(unsigned int *));
   for(j=0;j<nfrac;j++)
@@ -469,7 +458,7 @@ extern void identification(void)
 
             SetBit(test,i);
             omp_unset_lock(&(lock[i]));
-            busv(i,test,lock);
+            busv(i,test);
           } 
 
         #else

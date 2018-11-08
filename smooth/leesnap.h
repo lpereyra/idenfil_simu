@@ -4,7 +4,9 @@
 extern void leeheader(void);
 extern void read_segment(type_int NNN, type_real *fof);
 extern void read_grup_fof(type_real *fof);
-
+#ifdef PARTICLES
+extern void read_gadget();
+#endif
 /*Input and output files*/
 struct SnapST{
   type_int nfiles;

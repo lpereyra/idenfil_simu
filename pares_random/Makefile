@@ -2,7 +2,7 @@
 EXTRAS += -DPERIODIC    #periodic boundary condition
 #EXTRAS += -DPRECDOUBLE   #Pos and vel in double precision
 #EXTRAS += -DLONGIDS            #IDs are long integer
-#EXTRAS += -DPOSFACTOR=1000.0   #EN Mpc
+EXTRAS += -DPOSFACTOR=1000.0   #EN Mpc
 EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 EXTRAS += -DSTORE_VELOCITIES
 #EXTRAS += -DSTORE_IDS

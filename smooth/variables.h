@@ -25,6 +25,10 @@
   #endif
 #endif
 
+#ifndef R_SPH
+  #define R_SPH 1000.0
+#endif
+
 #define N_part_types 6    /* Number of particle types */
 
 /* Precision del codigo (reales) */
@@ -44,16 +48,37 @@ typedef unsigned int type_int;
 size_t size_real;
 size_t size_int;
 
+#ifdef PARTICLES
+  struct particle_data 
+  {
+    type_real      Pos[3];
+    #ifdef STORE_VELOCITIES
+    type_real      Vel[3];
+    #endif
+    #ifdef STORE_IDS
+    type_int       id;
+    #endif
+  } *P;
+#endif
+
 struct segmentstd
 {
   type_int   size;
   type_real *Pos_list;
   type_int flag;
   type_real Mass[2];
+  type_real Vnodos[6];
   type_real razon;
   type_real len;
   type_real elong;
   type_real rms;
+  #ifdef PARTICLES
+  type_real vol;
+  type_real rho;
+  type_real mu;
+  type_real mass_part;
+  type_real Rvir[2];
+  #endif
 } *Seg;
 
 struct grup_data

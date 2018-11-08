@@ -94,8 +94,8 @@ void write(const type_int NNN, const type_real * restrict fof)
   {
     fwrite(&Seg[i].flag,sizeof(type_int),1,pfpropiedades);
     fwrite(&Seg[i].size,sizeof(type_int),1,pfpropiedades);
-    fwrite(&Seg[i].Mass[0],sizeof(type_real),1,pfpropiedades); 
-    fwrite(&Seg[i].Mass[1],sizeof(type_real),1,pfpropiedades); 
+    fwrite(&Seg[i].Mass[0],sizeof(type_real),2,pfpropiedades); 
+    fwrite(&Seg[i].Vnodos[0],sizeof(type_real),6,pfpropiedades); 
     fwrite(&Seg[i].razon,sizeof(type_real),1,pfpropiedades); 
     fwrite(&Seg[i].len,sizeof(type_real),1,pfpropiedades);
     fwrite(&Seg[i].elong,sizeof(type_real),1,pfpropiedades);

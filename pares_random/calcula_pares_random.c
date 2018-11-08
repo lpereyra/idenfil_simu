@@ -12,7 +12,6 @@
 
 #define NSIZE_MAX 1000
 
-
 static int compare_descend(const void *a, const void *b)
 {
   if(((struct sort_prop *) a)->mass > (((struct sort_prop *) b)->mass))
@@ -93,11 +92,9 @@ static void find_cut(int *k, const int NCut)
 
   for(i=m; i<cp.ngrup; i++)
   {
+    *k = i;
     if(Gr[i].NumPart<NCut)
-    {
-      *k = i;
       break;
-    }
   }
 
   GREEN("Finalizo Cut...\n");
@@ -144,7 +141,7 @@ void crea_random(int NpartCut)
   int i,j,k,Npares,Tid,c,realloc_size;
   type_real Posprima[3];
   type_real lbox2 = cp.lbox*0.5;
-  type_real a_mass, b_mass, dis;
+  type_real dis;
   FILE *pfpares;
   char filename[200];
   struct data * data_share;
@@ -186,13 +183,11 @@ void crea_random(int NpartCut)
   { 
 
     #pragma omp parallel for num_threads(NTHREADS) \
-    schedule(dynamic) default(none) private(j,Tid, \
+    schedule(static) default(none) private(j,Tid, \
     Posprima,dis,realloc_size) shared(cp,i,k,Gr,data_share,lbox2) \
     reduction(-:Npares)
     for(j=i+1;j<k;j++)
     {
-
-      Tid = omp_get_thread_num(); 
 
       Npares--;      
       Posprima[0] = Gr[i].Pos[0] - Gr[j].Pos[0];
@@ -212,6 +207,7 @@ void crea_random(int NpartCut)
 
       if(dis<LEN_MIN || dis>LEN_MAX) continue;
 
+      Tid = omp_get_thread_num(); 
       data_share[Tid].matrix[data_share[Tid].nsize].id_a = i;
       data_share[Tid].matrix[data_share[Tid].nsize].id_b = j;
       data_share[Tid].matrix[data_share[Tid].nsize].dist = dis;
@@ -219,8 +215,7 @@ void crea_random(int NpartCut)
 
       if((data_share[Tid].nsize%NSIZE_MAX) == 0)
       {
-        realloc_size = data_share[Tid].nsize/NSIZE_MAX;
-        realloc_size *= NSIZE_MAX;
+        realloc_size = data_share[Tid].nsize;
         realloc_size += NSIZE_MAX;
 
         data_share[Tid].matrix = (struct info *) \
@@ -241,16 +236,15 @@ void crea_random(int NpartCut)
       i = data_share[Tid].matrix[k].id_a;
       j = data_share[Tid].matrix[k].id_b;
 
-      a_mass = cp.Mpart*Gr[i].NumPart;
-      b_mass = cp.Mpart*Gr[j].NumPart;
       dis    = data_share[Tid].matrix[k].dist;
-
 
       fwrite(&Gr[j].id,sizeof(int),1,pfpares);
       fwrite(&Gr[i].id,sizeof(int),1,pfpares);
       fwrite(&dis,sizeof(float),1,pfpares);
-      fwrite(&b_mass,sizeof(float),1,pfpares);
-      fwrite(&a_mass,sizeof(float),1,pfpares);
+      fwrite(&Gr[j].Mass,sizeof(float),1,pfpares);
+      fwrite(&Gr[i].Mass,sizeof(float),1,pfpares);
+      fwrite(&Gr[j].vcm[0],sizeof(type_real),3,pfpares);
+      fwrite(&Gr[i].vcm[0],sizeof(type_real),3,pfpares);
     }
 
     free(data_share[Tid].matrix);

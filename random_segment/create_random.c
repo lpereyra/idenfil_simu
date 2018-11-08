@@ -41,8 +41,8 @@ void create_rand(int NNN, type_real *fof)
       sprintf(filename,"%.2d_%.4d_random_fil_%.2f_%.2f.%.2d.bin",snap.num,NNN,fof[0],fof[1],i);
     #endif
     pfrand[i]=fopen(filename,"w");
-    fwrite(&c[i],sizeof(int),1,pfrand[i]);       // Nfil 
-    fwrite(&c[i],sizeof(int),1,pfrand[i]);       // Nrand
+    fwrite(&c[i],sizeof(int),1,pfrand[i]); // Nfil 
+    fwrite(&c[i],sizeof(int),1,pfrand[i]); // Nrand
   }
 
   #pragma omp parallel for num_threads(NTHREADS) \

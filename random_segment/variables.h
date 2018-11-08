@@ -46,6 +46,7 @@ struct segmentstd
   int   *list;
   int   flag;
   float Mass[2];
+  float Vnodos[6];
   float razon;
   float len;
   float elong;
@@ -54,7 +55,6 @@ struct segmentstd
   int   size_part;
   int   *list_part;
   #endif
-  type_real *Vmedia;
 } *Seg;
 
 struct grup_data

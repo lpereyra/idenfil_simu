@@ -1,14 +1,14 @@
 ### snapshot options #######
-#EXTRAS += -DPERIODIC    #periodic boundary condition
+EXTRAS += -DPERIODIC    #periodic boundary condition
 #EXTRAS += -DPRECDOUBLE   #Pos and vel in double precision
 #EXTRAS += -DLONGIDS            #IDs are long integer
-#EXTRAS += -DPOSFACTOR=1000.0    #Positions in Kpc/h
+EXTRAS += -DPOSFACTOR=1000.0    #Positions in Kpc/h
 #EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 EXTRAS += -DSTORE_IDS
 
 #CC
 CC     := $(OMPP) gcc $(DOMPP)
-DC     := -DNTHREADS=16
+DC     := -DNTHREADS=8
 DC     += -DLOCK
 CFLAGS := -Wall -O3 -march=native -ftree-vectorize -fopenmp -g
 LIBS   := -lm

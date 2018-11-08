@@ -212,11 +212,13 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
     fwrite(&k,sizeof(int),1,pfout);
     fwrite(&k,sizeof(int),1,pfpropiedades);
 
-    r = (float)Gr[aux[0]].NumPart*cp.Mpart;
-    fwrite(&r,sizeof(float),1,pfpropiedades); // ESCRIBE LA MASA DE LA PRIMERA PUNTA
-    r = (float)Gr[id].NumPart*cp.Mpart;
-    fwrite(&r,sizeof(float),1,pfpropiedades); // ESCRIBE LA MASA DE LA SEGUNDA PUNTA
-    r = ((float)Gr[aux[0]].NumPart*cp.Mpart)/((float)Gr[id].NumPart*cp.Mpart);
+    fwrite(&Gr[aux[0]].Mass,sizeof(type_real),1,pfpropiedades); // ESCRIBE LA MASA DE LA PRIMERA PUNTA
+    fwrite(&Gr[id].Mass,sizeof(type_real),1,pfpropiedades);     // ESCRIBE LA MASA DE LA SEGUNDA PUNTA
+
+    fwrite(&Gr[aux[0]].vcm,sizeof(type_real),3,pfpropiedades);     // ESCRIBE LA VELOCIDAD DE LA SEGUNDA
+    fwrite(&Gr[id].vcm,sizeof(type_real),3,pfpropiedades);     // ESCRIBE LA VELOCIDAD DE LA SEGUNDA
+
+    r = Gr[aux[0]].Mass/Gr[id].Mass;
     fwrite(&r,sizeof(float),1,pfpropiedades); // ESCRIBE LA RAZON DE MASAS
 
     dux = Gr[id].Pos[0] - Gr[aux[0]].Pos[0];
