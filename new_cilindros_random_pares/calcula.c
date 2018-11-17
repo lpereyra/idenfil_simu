@@ -55,7 +55,7 @@ static void set_name(char * name, const type_int NNN, const char * prefix)
   #endif
 
   sprintf(name,"%s_%.2f_Mpc",name,RAUX/1000.f);
-  
+
   #ifdef BIN_LOG
     sprintf(name,"%s_LOG",name);
   #else

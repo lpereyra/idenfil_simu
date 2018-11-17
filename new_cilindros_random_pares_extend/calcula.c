@@ -984,9 +984,9 @@ extern void propiedades(type_int NNN, type_real *fof)
       matrix_quad_par[i][k] += matrix_quad_par[i+cp.nseg][k];
       matrix_mean_per[i][k] += matrix_mean_per[i+cp.nseg][k];
       matrix_quad_per[i][k] += matrix_quad_per[i+cp.nseg][k];
-
-      aux  = (type_real)matrix_npart[i][k]*volinv[k/j];
-      aux  -= 1.0f;
+      
+      //
+      //
 
       matrix_mean_par[i][k] *= (matrix_npart[i][k]>0) ? 1./(type_real)matrix_npart[i][k] : 0.0f;
       matrix_mean_per[i][k] *= (matrix_npart[i][k]>0) ? 1./(type_real)matrix_npart[i][k] : 0.0f;
@@ -996,6 +996,18 @@ extern void propiedades(type_int NNN, type_real *fof)
 
       matrix_quad_per[i][k] = matrix_npart[i][k]>10 ? sqrt(fabs(matrix_quad_per[i][k] - \
       matrix_npart[i][k]*matrix_mean_per[i][k]*matrix_mean_per[i][k])*(1.f/(type_real)(matrix_npart[i][k]-1))) : 0.0f;
+
+      //
+      //
+
+      matrix_npart[i][k]    *= 0.5; 
+      matrix_mean_par[i][k] *= 0.5;
+      matrix_quad_par[i][k] *= 0.5;
+      matrix_mean_per[i][k] *= 0.5;
+      matrix_quad_per[i][k] *= 0.5;
+
+      aux  = (type_real)matrix_npart[i][k]*volinv[k/j];
+      aux  -= 1.0f;
 
       fwrite(&matrix_npart[i][k],sizeof(type_int),1,pf);
       fwrite(&aux,sizeof(type_real),1,pf);

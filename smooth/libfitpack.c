@@ -97,6 +97,7 @@ extern void suaviza()
   #ifdef ITERA
   type_int j;
   #endif
+  type_real fix_array[6];
 
   cp.lbox /= POSFACTOR;
 
@@ -104,10 +105,6 @@ extern void suaviza()
     for(k=0;k<Seg[i].size;k++)
       for(idim=0;idim<3;idim++)
         Seg[i].Pos_list[IX(k,idim)] /= POSFACTOR;
-
-  GREEN("********** SUAVIZA ***********\n");
-  GREEN("******************************\n");
-  fflush(stdout); 
 
   #ifdef ITERA
 
@@ -167,6 +164,10 @@ extern void suaviza()
   
   #endif
 
+  GREEN("********** SUAVIZA ***********\n");
+  GREEN("******************************\n");
+  fflush(stdout); 
+
   for(i=0;i<cp.nseg;i++)
   {
     #ifdef FIX_NSMOOTH
@@ -178,7 +179,7 @@ extern void suaviza()
     if(Seg[i].size>=4)
     {
 
-      if(Nsm<Seg[i].size) Nsm = Seg[i].size;
+      if(Nsm<=Seg[i].size) Nsm = Seg[i].size;
 
       Seg[i].Pos_list = (type_real *) realloc(Seg[i].Pos_list,3*Nsm*sizeof(type_real));
 
@@ -194,10 +195,22 @@ extern void suaviza()
         }
       }
 
+      for(idim=0;idim<3;idim++)
+      {
+        fix_array[idim]   = Seg[i].Pos_list[IX(0,idim)];
+        fix_array[idim+3] = Seg[i].Pos_list[IX((Seg[i].size-1),idim)];
+      }
+
       smooth((int)Seg[i].size,3,Seg[i].Pos_list,2.0,(int)Nsm);
 
       Seg[i].size = Nsm;
-      
+
+      for(idim=0;idim<3;idim++)
+      {
+        Seg[i].Pos_list[IX(0,idim)]               = fix_array[idim];
+        Seg[i].Pos_list[IX((Seg[i].size-1),idim)] = fix_array[idim+3];
+      }
+     
       for(k=0;k<Seg[i].size;k++)
       {      
         for(idim=0;idim<3;idim++)
@@ -211,45 +224,43 @@ extern void suaviza()
           #endif
         }
       }
-
     }
+
+    for(k=0;k<Seg[i].size;k++)
+      for(idim=0;idim<3;idim++)
+        Seg[i].Pos_list[IX(k,idim)] *= POSFACTOR;
   }
+
+  cp.lbox *= POSFACTOR;
 
   GREEN("******** END SUAVIZADO ********\n");
   GREEN("*******************************\n");
   fflush(stdout); 
 
-  cp.lbox *= POSFACTOR;
-
-  for(i=0;i<cp.nseg;i++)
-    for(k=0;k<Seg[i].size;k++)
-      for(idim=0;idim<3;idim++)
-        Seg[i].Pos_list[IX(k,idim)] *= POSFACTOR;
- 
   GREEN("***** CALCULA PROPIEDADES *****\n");
   GREEN("*******************************\n");
   fflush(stdout); 
 
-  Pos_aux = (type_real *) malloc(6*sizeof(type_real));
-
+  #pragma omp parallel for num_threads(NTHREADS) default(none) \
+  private(i,k,idim,diff,fix_array) shared(cp,Seg,stdout)
   for(i=0;i<cp.nseg;i++)
   {
     /////////////////////////////////////////////////////////////////////  
-    
+
     Seg[i].len = 0.0f;
     for(k=1;k<Seg[i].size;k++)
     {
       diff = 0.0f;
       for(idim=0;idim<3;idim++)
       { 
-        Pos_aux[idim] = Seg[i].Pos_list[IX(k,idim)]-Seg[i].Pos_list[IX((k-1),idim)];
+        fix_array[idim] = Seg[i].Pos_list[IX(k,idim)]-Seg[i].Pos_list[IX((k-1),idim)];
  
         #ifdef PERIODIC
-        if(Pos_aux[idim] >  0.5*cp.lbox) Pos_aux[idim] -= cp.lbox;
-        if(Pos_aux[idim] < -0.5*cp.lbox) Pos_aux[idim] += cp.lbox;
+        if(fix_array[idim] >  0.5*cp.lbox) fix_array[idim] -= cp.lbox;
+        if(fix_array[idim] < -0.5*cp.lbox) fix_array[idim] += cp.lbox;
         #endif
 
-        diff += Pos_aux[idim]*Pos_aux[idim];
+        diff += fix_array[idim]*fix_array[idim];
       }
       Seg[i].len += sqrt(diff);
     }
@@ -259,20 +270,20 @@ extern void suaviza()
     diff = 0.0f;
     for(idim=0;idim<3;idim++)
     { 
-      Pos_aux[idim+3] = Seg[i].Pos_list[IX((Seg[i].size-1),idim)]-Seg[i].Pos_list[IX(0,idim)];
+      fix_array[idim+3] = Seg[i].Pos_list[IX((Seg[i].size-1),idim)]-Seg[i].Pos_list[IX(0,idim)];
    
       #ifdef PERIODIC
-      if(Pos_aux[idim+3] >  0.5*cp.lbox) Pos_aux[idim+3] -= cp.lbox;
-      if(Pos_aux[idim+3] < -0.5*cp.lbox) Pos_aux[idim+3] += cp.lbox;
+      if(fix_array[idim+3] >  0.5*cp.lbox) fix_array[idim+3] -= cp.lbox;
+      if(fix_array[idim+3] < -0.5*cp.lbox) fix_array[idim+3] += cp.lbox;
       #endif
   
-      diff += Pos_aux[idim+3]*Pos_aux[idim+3];
+      diff += fix_array[idim+3]*fix_array[idim+3];
     }
 
     diff = sqrt(diff);
 
     for(idim=0;idim<3;idim++)
-      Pos_aux[idim+3] /= diff;
+      fix_array[idim+3] /= diff;
   
     Seg[i].elong = diff/Seg[i].len;
 
@@ -286,17 +297,17 @@ extern void suaviza()
       diff = 0.0f;
       for(idim=0;idim<3;idim++)
       { 
-        Pos_aux[idim] = Seg[i].Pos_list[IX(k,idim)]-Seg[i].Pos_list[IX(0,idim)];
+        fix_array[idim] = Seg[i].Pos_list[IX(k,idim)]-Seg[i].Pos_list[IX(0,idim)];
  
         #ifdef PERIODIC
-        if(Pos_aux[idim] >  0.5*cp.lbox) Pos_aux[idim] -= cp.lbox;
-        if(Pos_aux[idim] < -0.5*cp.lbox) Pos_aux[idim] += cp.lbox;
+        if(fix_array[idim] >  0.5*cp.lbox) fix_array[idim] -= cp.lbox;
+        if(fix_array[idim] < -0.5*cp.lbox) fix_array[idim] += cp.lbox;
         #endif
 
       }
 
-      diff = Pos_aux[0]*Pos_aux[3]+Pos_aux[1]*Pos_aux[4]+Pos_aux[2]*Pos_aux[5];              // dot
-      diff = Pos_aux[0]*Pos_aux[0]+Pos_aux[1]*Pos_aux[1]+Pos_aux[2]*Pos_aux[2] - diff*diff;  // dist - dot
+      diff = fix_array[0]*fix_array[3]+fix_array[1]*fix_array[4]+fix_array[2]*fix_array[5];              // dot
+      diff = fix_array[0]*fix_array[0]+fix_array[1]*fix_array[1]+fix_array[2]*fix_array[2] - diff*diff;  // dist - dot
       diff = fabs(diff);  // por errores de redondeo
       Seg[i].rms += diff;
 
@@ -306,8 +317,6 @@ extern void suaviza()
     Seg[i].rms = sqrt(Seg[i].rms);
 
   }
-
-  free(Pos_aux);
 
   return;
 }

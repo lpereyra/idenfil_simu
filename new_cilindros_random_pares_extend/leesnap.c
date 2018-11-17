@@ -211,11 +211,11 @@ extern void read_pares(type_int NNN, type_real *fof)
 {
   char  filename[200];
   type_int   i,k;
+  FILE  *pf;
   #ifndef ORIGINAL
   type_int   j;
   type_real  r[3];
   #endif
-  FILE  *pf;
 
   set_name("segmentos",filename,NNN,fof);
   fprintf(stdout,"%s\n",filename);
