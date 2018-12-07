@@ -9,6 +9,7 @@
 #include "timer.h"
 #include "colores.h"
 #include "leesnap.h"
+#include "chull.h"
 
 int main(int argc, char **argv)
 {
@@ -24,10 +25,30 @@ int main(int argc, char **argv)
 
   select_particles_fof(fof[0]);
 
-  read_grup_fof(fof[1]);
+  //read_grup_fof(fof[1]);
+
+  type_int i, j;
+
+  j = 0;
+  for(i=0;i<cp.npart;i++)
+  {
+    if(P[i].sub==1)
+    {
+      P[j] = P[i];
+      j++;
+    }
+  }
+
+  cp.npart = j;
+
+  P = (struct particle_data *) realloc(P,cp.npart*sizeof(struct particle_data));
+
+  fprintf(stdout,"papa 01 npart %u\n",cp.npart);
+
+  build_chull();
 
   free(P);
-  free(Gr);
+  //free(Gr);
 
   TIMER(end);
   fprintf(stdout,"Total time %f\n",end-start);

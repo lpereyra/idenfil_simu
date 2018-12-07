@@ -1,110 +1,19 @@
 #include <stdio.h>
 #include <math.h>
-#include "macros.h"
-
-/*Define Boolean type */
-typedef	enum { FALSE, TRUE }	bool;
-
-/* Define vertex indices. */
-#define X 0
-#define Y 1
-#define Z 2
-
-/* Define structures for vertices, edges and faces */
-typedef struct tVertexStructure tsVertex;
-typedef tsVertex *tVertex;
-
-typedef struct tEdgeStructure tsEdge;
-typedef tsEdge *tEdge;
-
-typedef struct tFaceStructure tsFace;
-typedef tsFace *tFace;
-
-struct tVertexStructure {
-   int      v[3];
-   int	    vnum;
-   tEdge    duplicate;	        /* pointer to incident cone edge (or NULL) */
-   bool     onhull;		          /* T iff point on hull. */
-   bool	    mark;	            	/* T iff point already processed. */
-   tVertex  next, prev;
-};
-
-struct tEdgeStructure {
-   tFace    adjface[2];
-   tVertex  endpts[2];
-   tFace    newface;            /* pointer to incident cone face. */
-   bool     delete;		/* T iff edge should be delete. */
-   tEdge    next, prev;
-};
-
-struct tFaceStructure {
-   tEdge    edge[3];
-   tVertex  vertex[3];
-   bool	    visible;	        /* T iff face visible from new point. */
-   tFace    next, prev;
-};
-
-/* Define flags */
-#define ONHULL   	TRUE
-#define REMOVED  	TRUE
-#define VISIBLE  	TRUE
-#define PROCESSED	TRUE
-#define SAFE		1000000		/* Range of safe coord values. */
+#include <omp.h>
+#include "chull.h"
+#include "variables.h"
+#include "cosmoparam.h"
 
 /* Global variable definitions */
-tVertex vertices = NULL;
-tEdge edges    	 = NULL;
-tFace faces    	 = NULL;
-
-/* Function declarations */
-tVertex MakeNullVertex( void );
-void  ReadVertices( void );
-void  Print( void );
-void  SubVec( int a[3], int b[3], int c[3]);
-void  DoubleTriangle( void );
-void  ConstructHull( void );
-bool	AddOne( tVertex p );
-int   VolumeSign(tFace f, tVertex p);
-int 	Volumei( tFace f, tVertex p );
-tFace	MakeConeFace( tEdge e, tVertex p );
-void  MakeCcw( tFace f, tEdge e, tVertex p );
-tEdge MakeNullEdge( void );
-tFace MakeNullFace( void );
-tFace MakeFace( tVertex v0, tVertex v1, tVertex v2, tFace f );
-void  CleanUp( tVertex *pvnext );
-void  CleanEdges( void );
-void  CleanFaces( void );
-void  CleanVertices( tVertex *pvnext );
-bool  Collinear( tVertex a, tVertex b, tVertex c );
-void  CheckEuler(int V, int E, int F );
-void	PrintPoint( tVertex p );
-void	Consistency( void );
-void	Convexity( void );
-void	PrintVertices( void );
-void	PrintFaces( void );
-
-/*-------------------------------------------------------------------*/
-//int main( int argc, char *argv[] )
-//{
-//  ReadVertices();
-//  DoubleTriangle();
-//  ConstructHull();
-//  Print();
-//
-//  tVertex  v, vnext;
-//  v = vertices;
-//  do {
-//     vnext = v->next;
-//     CleanUp( &vnext ); 
-//     v = vnext;
-//  } while ( v != vertices );
-//
-//}
+static tVertex vertices = NULL;
+static tEdge edges    	 = NULL;
+static tFace faces    	 = NULL;
 
 /*---------------------------------------------------------------------
 MakeNullVertex: Makes a vertex, nulls out fields.
 ---------------------------------------------------------------------*/
-tVertex	MakeNullVertex( void )
+static tVertex MakeNullVertex( void )
 {
    tVertex  v;
    
@@ -118,105 +27,121 @@ tVertex	MakeNullVertex( void )
 }
 
 /*---------------------------------------------------------------------
-ReadVertices: Reads in the vertices, and links them into a circular
-list with MakeNullVertex.  There is no need for the # of vertices to be
-the first line: the function looks for EOF instead.  Sets the global
-variable vertices via the ADD macro.
+MakeNullEdge creates a new cell and initializes all pointers to NULL
+and sets all flags to off.  It returns a pointer to the empty cell.
 ---------------------------------------------------------------------*/
-void	ReadVertices( void )
+static tEdge MakeNullEdge( void )
 {
-   tVertex  v;
-   int      x, y, z;
-   int	    vnum = 0;
+   tEdge  e;
 
-   while ( scanf ("%d %d %d", &x, &y, &z ) != EOF )  {
-      v = MakeNullVertex();
-      v->v[X] = x;
-      v->v[Y] = y;
-      v->v[Z] = z;
-      v->vnum = vnum++;
-      if ( ( abs(x) > SAFE ) || ( abs(y) > SAFE ) || ( abs(z) > SAFE ) ) {
-         printf("Coordinate of vertex below might be too large: run with -d flag\n");
-         PrintPoint(v);
-      }
+   NEW( e, tsEdge );
+   e->adjface[0] = e->adjface[1] = e->newface = NULL;
+   e->endpts[0] = e->endpts[1] = NULL;
+   e->delete = !REMOVED;
+   ADD( edges, e );
+   return e;
+}
+
+/*--------------------------------------------------------------------
+MakeNullFace creates a new face structure and initializes all of its
+flags to NULL and sets all the flags to off.  It returns a pointer
+to the empty cell.
+---------------------------------------------------------------------*/
+static tFace MakeNullFace( void )
+{
+   tFace  f;
+   int    i;
+
+   NEW( f, tsFace);
+   for ( i=0; i < 3; ++i ) {
+      f->edge[i] = NULL;
+      f->vertex[i] = NULL;
    }
+   f->visible = !VISIBLE;
+   ADD( faces, f );
+   return f;
+}
+	
+/*---------------------------------------------------------------------
+Collinear checks to see if the three points given are collinear,
+by checking to see if each element of the cross product is zero.
+---------------------------------------------------------------------*/
+static bool Collinear( tVertex a, tVertex b, tVertex c )
+{
+   return 
+         ( P[c->idx].Pos[Z] - P[a->idx].Pos[Z] ) * ( P[b->idx].Pos[Y] - P[a->idx].Pos[Y] ) -
+         ( P[b->idx].Pos[Z] - P[a->idx].Pos[Z] ) * ( P[c->idx].Pos[Y] - P[a->idx].Pos[Y] ) == 0
+      && ( P[b->idx].Pos[Z] - P[a->idx].Pos[Z] ) * ( P[c->idx].Pos[X] - P[a->idx].Pos[X] ) -
+         ( P[b->idx].Pos[X] - P[a->idx].Pos[X] ) * ( P[c->idx].Pos[Z] - P[a->idx].Pos[Z] ) == 0
+      && ( P[b->idx].Pos[X] - P[a->idx].Pos[X] ) * ( P[c->idx].Pos[Y] - P[a->idx].Pos[Y] ) -
+         ( P[b->idx].Pos[Y] - P[a->idx].Pos[Y] ) * ( P[c->idx].Pos[X] - P[a->idx].Pos[X] ) == 0  ;
 }
 
 /*---------------------------------------------------------------------
-Print: Prints out the vertices and the faces.  Uses the vnum indices 
-corresponding to the order in which the vertices were input.
-Output is in PostScript format.
+MakeFace creates a new face structure from three vertices (in ccw
+order).  It returns a pointer to the face.
 ---------------------------------------------------------------------*/
-void	Print( void )
+static tFace MakeFace( tVertex v0, tVertex v1, tVertex v2, tFace fold )
 {
-   /* Pointers to vertices, edges, faces. */
-   tVertex  v;
-   tEdge    e;
-   tFace    f;
-   int xmin, ymin, xmax, ymax;
-   int a[3], b[3];  /* used to compute normal vector */
-   /* Counters for Euler's formula. */
-   int 	V = 0, E = 0 , F = 0;
-   /* Note: lowercase==pointer, uppercase==counter. */
+   tFace  f;
+   tEdge  e0, e1, e2;
 
-   /* Vertices. */
-   v = vertices;
-   do {                                 
-      if( v->mark ) V++;           
-      v = v->next;
-   } while ( v != vertices );
-   printf("\n%%%% Vertices:\tV = %d\n", V);
-   printf("%%%% index:\tx\ty\tz\n");
-   do {                                 
-      printf( "%%%% %5d:\t%d\t%d\t%d\n", 
-	     v->vnum, v->v[X], v->v[Y], v->v[Z] );
-      v = v->next;
-   } while ( v != vertices );
+   /* Create edges of the initial triangle. */
+   if( !fold ) {
+     e0 = MakeNullEdge();
+     e1 = MakeNullEdge();
+     e2 = MakeNullEdge();
+   }
+   else { /* Copy from fold, in reverse order. */
+     e0 = fold->edge[2];
+     e1 = fold->edge[1];
+     e2 = fold->edge[0];
+   }
+   e0->endpts[0] = v0;              e0->endpts[1] = v1;
+   e1->endpts[0] = v1;              e1->endpts[1] = v2;
+   e2->endpts[0] = v2;              e2->endpts[1] = v0;
 	
-   /* Faces. */
-   /* visible faces are printed as PS output */
-   f = faces;
-   do {
-      ++F;                              
-      f  = f ->next;
-   } while ( f  != faces );
-
-   /* prints a list of all faces */
-   printf("%%%% List of all faces: \n");
-   printf("%%%%\tv0\tv1\tv2\t(vertex indices)\n");
-   do {
-      printf("%%%%\t%d\t%d\t%d\n",
-	     f->vertex[0]->vnum,
-	     f->vertex[1]->vnum,
-	     f->vertex[2]->vnum );
-      f = f->next;
-   } while ( f != faces );
+   /* Create face for triangle. */
+   f = MakeNullFace();
+   f->edge[0]   = e0;  f->edge[1]   = e1; f->edge[2]   = e2;
+   f->vertex[0] = v0;  f->vertex[1] = v1; f->vertex[2] = v2;
 	
-   /* Edges. */	
-   e = edges;
-   do {
-      E++;
-      e = e->next;
-   } while ( e != edges );
-   printf("\n%%%% Edges:\tE = %d\n", E );
-   /* Edges not printed out (but easily added). */
-
-   Consistency();
-   Convexity();
-   CheckEuler( V, E, F );
-
+   /* Link edges to face. */
+   e0->adjface[0] = e1->adjface[0] = e2->adjface[0] = f;
+	
+   return f;
 }
 
 /*---------------------------------------------------------------------
-SubVec:  Computes a - b and puts it into c.
+VolumeSign returns the sign of the volume of the tetrahedron determined by f
+and p.  VolumeSign is +1 iff p is on the negative side of f,
+where the positive side is determined by the rh-rule.  So the volume 
+is positive if the ccw normal to f points outside the tetrahedron.
+The final fewer-multiplications form is due to Bob Williamson.
 ---------------------------------------------------------------------*/
-void    SubVec( int a[3], int b[3], int c[3])
+static int VolumeSign( tFace f, tVertex p )
 {
-   int  i;
+   double  vol;
+   double  ax, ay, az, bx, by, bz, cx, cy, cz;
 
-   for( i=0; i < 2; i++ )
-      c[i] = a[i] - b[i];
+   ax = P[f->vertex[0]->idx].Pos[X] - P[p->idx].Pos[X];
+   ay = P[f->vertex[0]->idx].Pos[Y] - P[p->idx].Pos[Y];
+   az = P[f->vertex[0]->idx].Pos[Z] - P[p->idx].Pos[Z];
+   bx = P[f->vertex[1]->idx].Pos[X] - P[p->idx].Pos[X];
+   by = P[f->vertex[1]->idx].Pos[Y] - P[p->idx].Pos[Y];
+   bz = P[f->vertex[1]->idx].Pos[Z] - P[p->idx].Pos[Z];
+   cx = P[f->vertex[2]->idx].Pos[X] - P[p->idx].Pos[X];
+   cy = P[f->vertex[2]->idx].Pos[Y] - P[p->idx].Pos[Y];
+   cz = P[f->vertex[2]->idx].Pos[Z] - P[p->idx].Pos[Z];
 
+   vol =   ax * (by*cz - bz*cy)
+         + ay * (bz*cx - bx*cz)
+         + az * (bx*cy - by*cx);
+
+   /* The volume should be an integer. */
+   if      ( vol >  0.5 )  return  1;
+   else if ( vol < -0.5 )  return -1;
+   else                    return  0;
 }
 
 /*---------------------------------------------------------------------
@@ -228,7 +153,7 @@ void    SubVec( int a[3], int b[3], int c[3])
  3 newfaces to the fourth point are constructed and the data structures
  are cleaned up. 
 ---------------------------------------------------------------------*/
-void    DoubleTriangle( void )
+static void DoubleTriangle( void )
 {
    tVertex  v0, v1, v2, v3, t;
    tFace    f0, f1 = NULL;
@@ -274,153 +199,46 @@ void    DoubleTriangle( void )
 
 }
 
-  
 /*---------------------------------------------------------------------
-ConstructHull adds the vertices to the hull one at a time.  The hull
-vertices are those in the list marked as onhull.
+MakeCcw puts the vertices in the face structure in counterclock wise 
+order.  We want to store the vertices in the same 
+order as in the visible face.  The third vertex is always p.
+
+Although no specific ordering of the edges of a face are used
+by the code, the following condition is maintained for each face f:
+one of the two endpoints of f->edge[i] matches f->vertex[i]. 
+But note that this does not imply that f->edge[i] is between
+f->vertex[i] and f->vertex[(i+1)%3].  (Thanks to Bob Williamson.)
 ---------------------------------------------------------------------*/
-void	ConstructHull( void )
+static void	MakeCcw( tFace f, tEdge e, tVertex p )
 {
-   tVertex  v, vnext;
-   int 	    vol;
-   bool	    changed;	/* T if addition changes hull; not used. */
-
-   v = vertices;
-   do {
-      vnext = v->next;
-      if( !v->mark ) 
-      {
-         v->mark = PROCESSED;
-      	 changed = AddOne( v );
-      	 CleanUp( &vnext ); /* Pass down vnext in case it gets deleted. */
-      }
-      v = vnext;
-   } while ( v != vertices );
-
-}
-
-/*---------------------------------------------------------------------
-AddOne is passed a vertex.  It first determines all faces visible from 
-that point.  If none are visible then the point is marked as not 
-onhull.  Next is a loop over edges.  If both faces adjacent to an edge
-are visible, then the edge is marked for deletion.  If just one of the
-adjacent faces is visible then a new face is constructed.
----------------------------------------------------------------------*/
-bool 	AddOne( tVertex p )
-{
-   tFace  f; 
-   tEdge  e, temp;
-   int 	  vol;
-   bool	  vis = FALSE;
-
-   /* Mark faces visible from p. */
-   f = faces;
-   do {
-      vol = VolumeSign( f, p );
-      //if (debug) fprintf(stderr, 
-      //   "faddr: %6x   paddr: %6x   Vol = %d\n", f,p,vol);
-      if ( vol < 0 ) {
-	 f->visible = VISIBLE;  
-	 vis = TRUE;                      
-      }
-      f = f->next;
-   } while ( f != faces );
-
-   /* If no faces are visible from p, then p is inside the hull. */
-   if ( !vis ) {
-      p->onhull = !ONHULL;  
-      return FALSE; 
+   tFace  fv;   /* The visible face adjacent to e */
+   int    i;    /* Index of e->endpoint[0] in fv. */
+   tEdge  s;	/* Temporary, for swapping */
+      
+   if  ( e->adjface[0]->visible )      
+        fv = e->adjface[0];
+   else fv = e->adjface[1];
+       
+   /* Set vertex[0] & [1] of f to have the same orientation
+      as do the corresponding vertices of fv. */ 
+   for ( i=0; fv->vertex[i] != e->endpts[0]; ++i )
+      ;
+   /* Orient f the same as fv. */
+   if ( fv->vertex[ (i+1) % 3 ] != e->endpts[1] ) {
+      f->vertex[0] = e->endpts[1];  
+      f->vertex[1] = e->endpts[0];    
    }
-
-   /* Mark edges in interior of visible region for deletion.
-      Erect a newface based on each border edge. */
-   e = edges;
-   do {
-      temp = e->next;
-      if ( e->adjface[0]->visible && e->adjface[1]->visible )
-	 /* e interior: mark for deletion. */
-	 e->delete = REMOVED;
-      else if ( e->adjface[0]->visible || e->adjface[1]->visible ) 
-	 /* e border: make a new face. */
-	 e->newface = MakeConeFace( e, p );
-      e = temp;
-   } while ( e != edges );
-   return TRUE;
-}
-
-/*---------------------------------------------------------------------
-VolumeSign returns the sign of the volume of the tetrahedron determined by f
-and p.  VolumeSign is +1 iff p is on the negative side of f,
-where the positive side is determined by the rh-rule.  So the volume 
-is positive if the ccw normal to f points outside the tetrahedron.
-The final fewer-multiplications form is due to Bob Williamson.
----------------------------------------------------------------------*/
-int  VolumeSign( tFace f, tVertex p )
-{
-   double  vol;
-   int     voli;
-   double  ax, ay, az, bx, by, bz, cx, cy, cz;
-
-   ax = f->vertex[0]->v[X] - p->v[X];
-   ay = f->vertex[0]->v[Y] - p->v[Y];
-   az = f->vertex[0]->v[Z] - p->v[Z];
-   bx = f->vertex[1]->v[X] - p->v[X];
-   by = f->vertex[1]->v[Y] - p->v[Y];
-   bz = f->vertex[1]->v[Z] - p->v[Z];
-   cx = f->vertex[2]->v[X] - p->v[X];
-   cy = f->vertex[2]->v[Y] - p->v[Y];
-   cz = f->vertex[2]->v[Z] - p->v[Z];
-
-   vol =   ax * (by*cz - bz*cy)
-         + ay * (bz*cx - bx*cz)
-         + az * (bx*cy - by*cx);
-
-   //if ( debug ) {
-   //   /* Compute the volume using integers for comparison. */
-   //   voli = Volumei( f, p );
-   //   fprintf(stderr,"Face=%6x; Vertex=%d: vol(int) = %d, vol(double) = %lf\n",
-	 //     f,p->vnum,voli,vol);
-   //}
-
-   /* The volume should be an integer. */
-   if      ( vol >  0.5 )  return  1;
-   else if ( vol < -0.5 )  return -1;
-   else                    return  0;
-}
-/*---------------------------------------------------------------------
-Same computation, but computes using ints, and returns the actual volume.
----------------------------------------------------------------------*/
-int  Volumei( tFace f, tVertex p )
-{
-   int  vol;
-   int  ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz;
-
-   ax = f->vertex[0]->v[X] - p->v[X];
-   ay = f->vertex[0]->v[Y] - p->v[Y];
-   az = f->vertex[0]->v[Z] - p->v[Z];
-   bx = f->vertex[1]->v[X] - p->v[X];
-   by = f->vertex[1]->v[Y] - p->v[Y];
-   bz = f->vertex[1]->v[Z] - p->v[Z];
-   cx = f->vertex[2]->v[X] - p->v[X];
-   cy = f->vertex[2]->v[Y] - p->v[Y];
-   cz = f->vertex[2]->v[Z] - p->v[Z];
-
-   vol =  (ax * (by*cz - bz*cy)
-         + ay * (bz*cx - bx*cz)
-         + az * (bx*cy - by*cx));
-
-   return vol;
-}
-
-
-/*-------------------------------------------------------------------*/
-void	PrintPoint( tVertex p )
-{
-   int	i;
-
-   for ( i = 0; i < 3; i++ )
-      printf("\t%d", p->v[i]);
-   putchar('\n');
+   else {                               
+      f->vertex[0] = e->endpts[0];   
+      f->vertex[1] = e->endpts[1];      
+      SWAP( s, f->edge[1], f->edge[2] );
+   }
+   /* This swap is tricky. e is edge[0]. edge[1] is based on endpt[0],
+      edge[2] on endpt[1].  So if e is oriented "forwards," we
+      need to move edge[1] to follow [0], because it precedes. */
+   
+   f->vertex[2] = p;
 }
 
 /*---------------------------------------------------------------------
@@ -428,7 +246,7 @@ MakeConeFace makes a new face and two new edges between the
 edge and the point that are passed to it. It returns a pointer to
 the new face.
 ---------------------------------------------------------------------*/
-tFace	MakeConeFace( tEdge e, tVertex p )
+static tFace	MakeConeFace( tEdge e, tVertex p )
 {
    tEdge  new_edge[2];
    tFace  new_face;
@@ -463,130 +281,82 @@ tFace	MakeConeFace( tEdge e, tVertex p )
         
    return new_face;
 }
-
-/*---------------------------------------------------------------------
-MakeCcw puts the vertices in the face structure in counterclock wise 
-order.  We want to store the vertices in the same 
-order as in the visible face.  The third vertex is always p.
-
-Although no specific ordering of the edges of a face are used
-by the code, the following condition is maintained for each face f:
-one of the two endpoints of f->edge[i] matches f->vertex[i]. 
-But note that this does not imply that f->edge[i] is between
-f->vertex[i] and f->vertex[(i+1)%3].  (Thanks to Bob Williamson.)
----------------------------------------------------------------------*/
-void	MakeCcw( tFace f, tEdge e, tVertex p )
-{
-   tFace  fv;   /* The visible face adjacent to e */
-   int    i;    /* Index of e->endpoint[0] in fv. */
-   tEdge  s;	/* Temporary, for swapping */
-      
-   if  ( e->adjface[0]->visible )      
-        fv = e->adjface[0];
-   else fv = e->adjface[1];
-       
-   /* Set vertex[0] & [1] of f to have the same orientation
-      as do the corresponding vertices of fv. */ 
-   for ( i=0; fv->vertex[i] != e->endpts[0]; ++i )
-      ;
-   /* Orient f the same as fv. */
-   if ( fv->vertex[ (i+1) % 3 ] != e->endpts[1] ) {
-      f->vertex[0] = e->endpts[1];  
-      f->vertex[1] = e->endpts[0];    
-   }
-   else {                               
-      f->vertex[0] = e->endpts[0];   
-      f->vertex[1] = e->endpts[1];      
-      SWAP( s, f->edge[1], f->edge[2] );
-   }
-   /* This swap is tricky. e is edge[0]. edge[1] is based on endpt[0],
-      edge[2] on endpt[1].  So if e is oriented "forwards," we
-      need to move edge[1] to follow [0], because it precedes. */
-   
-   f->vertex[2] = p;
-}
  
 /*---------------------------------------------------------------------
-MakeNullEdge creates a new cell and initializes all pointers to NULL
-and sets all flags to off.  It returns a pointer to the empty cell.
+AddOne is passed a vertex.  It first determines all faces visible from 
+that point.  If none are visible then the point is marked as not 
+onhull.  Next is a loop over edges.  If both faces adjacent to an edge
+are visible, then the edge is marked for deletion.  If just one of the
+adjacent faces is visible then a new face is constructed.
 ---------------------------------------------------------------------*/
-tEdge 	MakeNullEdge( void )
+static void AddOne( tVertex p )
 {
-   tEdge  e;
+   tFace  f; 
+   tEdge  e, temp;
+   int 	  vol;
+   bool	  vis = FALSE;
 
-   NEW( e, tsEdge );
-   e->adjface[0] = e->adjface[1] = e->newface = NULL;
-   e->endpts[0] = e->endpts[1] = NULL;
-   e->delete = !REMOVED;
-   ADD( edges, e );
-   return e;
-}
+   /* Mark faces visible from p. */
+   ///f = faces;
+   ///do {
+   ///   vol = VolumeSign( f, p );
+   ///   if ( vol < 0 ) 
+   ///   {
+   ///     f->visible = VISIBLE;  
+   ///     vis = TRUE;                      
+   ///   }
+   ///   f = f->next;
+   ///} while ( f != faces );
+   
+   #pragma omp parallel shared(faces,p,vis,f) private(vol)
+   {
 
-/*--------------------------------------------------------------------
-MakeNullFace creates a new face structure and initializes all of its
-flags to NULL and sets all the flags to off.  It returns a pointer
-to the empty cell.
----------------------------------------------------------------------*/
-tFace 	MakeNullFace( void )
-{
-   tFace  f;
-   int    i;
+     f = faces;
 
-   NEW( f, tsFace);
-   for ( i=0; i < 3; ++i ) {
-      f->edge[i] = NULL;
-      f->vertex[i] = NULL;
+     #pragma omp master
+     {
+ 
+       do {
+
+          #pragma omp taskgroup
+          {
+
+            vol = VolumeSign( f, p );
+
+            if ( vol < 0 ) 
+            {
+              f->visible = VISIBLE;  
+              vis = TRUE;                      
+            }
+          }
+
+          f = f->next;
+       } while ( f != faces );
+
+     }
    }
-   f->visible = !VISIBLE;
-   ADD( faces, f );
-   return f;
-}
 
-/*---------------------------------------------------------------------
-MakeFace creates a new face structure from three vertices (in ccw
-order).  It returns a pointer to the face.
----------------------------------------------------------------------*/
-tFace   MakeFace( tVertex v0, tVertex v1, tVertex v2, tFace fold )
-{
-   tFace  f;
-   tEdge  e0, e1, e2;
-
-   /* Create edges of the initial triangle. */
-   if( !fold ) {
-     e0 = MakeNullEdge();
-     e1 = MakeNullEdge();
-     e2 = MakeNullEdge();
+   /* If no faces are visible from p, then p is inside the hull. */
+   if ( !vis ) 
+   {
+      p->onhull = !ONHULL;  
+      return; 
    }
-   else { /* Copy from fold, in reverse order. */
-     e0 = fold->edge[2];
-     e1 = fold->edge[1];
-     e2 = fold->edge[0];
-   }
-   e0->endpts[0] = v0;              e0->endpts[1] = v1;
-   e1->endpts[0] = v1;              e1->endpts[1] = v2;
-   e2->endpts[0] = v2;              e2->endpts[1] = v0;
-	
-   /* Create face for triangle. */
-   f = MakeNullFace();
-   f->edge[0]   = e0;  f->edge[1]   = e1; f->edge[2]   = e2;
-   f->vertex[0] = v0;  f->vertex[1] = v1; f->vertex[2] = v2;
-	
-   /* Link edges to face. */
-   e0->adjface[0] = e1->adjface[0] = e2->adjface[0] = f;
-	
-   return f;
-}
 
-/*---------------------------------------------------------------------
-CleanUp goes through each data structure list and clears all
-flags and NULLs out some pointers.  The order of processing
-(edges, faces, vertices) is important.
----------------------------------------------------------------------*/
-void	CleanUp( tVertex *pvnext )
-{
-   CleanEdges();
-   CleanFaces();
-   CleanVertices( pvnext );
+   /* Mark edges in interior of visible region for deletion.
+      Erect a newface based on each border edge. */
+   e = edges;
+   do {
+      temp = e->next;
+      if ( e->adjface[0]->visible && e->adjface[1]->visible )
+        /* e interior: mark for deletion. */
+        e->delete = REMOVED;
+      else if ( e->adjface[0]->visible || e->adjface[1]->visible ) 
+        /* e border: make a new face. */
+      	 e->newface = MakeConeFace( e, p );
+      e = temp;
+   } while ( e != edges );
+   return;
 }
 
 /*---------------------------------------------------------------------
@@ -594,7 +364,7 @@ CleanEdges runs through the edge list and cleans up the structure.
 If there is a newface then it will put that face in place of the 
 visible face and NULL out newface. It also deletes so marked edges.
 ---------------------------------------------------------------------*/
-void	CleanEdges( void )
+static void	CleanEdges( void )
 {
    tEdge  e;	/* Primary index into edge list. */
    tEdge  t;	/* Temporary edge pointer. */
@@ -631,7 +401,7 @@ void	CleanEdges( void )
 /*---------------------------------------------------------------------
 CleanFaces runs through the face list and deletes any face marked visible.
 ---------------------------------------------------------------------*/
-void	CleanFaces( void )
+static void CleanFaces( void )
 {
    tFace  f;	/* Primary pointer into face list. */
    tFace  t;	/* Temporary pointer, for deleting. */
@@ -659,7 +429,7 @@ undeleted edges.
 The pointer to vnext, pvnext, is used to alter vnext in
 ConstructHull() if we are about to delete vnext.
 ---------------------------------------------------------------------*/
-void	CleanVertices( tVertex *pvnext )
+static void CleanVertices( tVertex *pvnext )
 {
    tEdge    e;
    tVertex  v, t;
@@ -702,26 +472,45 @@ void	CleanVertices( tVertex *pvnext )
 }
 
 /*---------------------------------------------------------------------
-Collinear checks to see if the three points given are collinear,
-by checking to see if each element of the cross product is zero.
+CleanUp goes through each data structure list and clears all
+flags and NULLs out some pointers.  The order of processing
+(edges, faces, vertices) is important.
 ---------------------------------------------------------------------*/
-bool	Collinear( tVertex a, tVertex b, tVertex c )
+static void	CleanUp( tVertex *pvnext )
 {
-   return 
-         ( c->v[Z] - a->v[Z] ) * ( b->v[Y] - a->v[Y] ) -
-         ( b->v[Z] - a->v[Z] ) * ( c->v[Y] - a->v[Y] ) == 0
-      && ( b->v[Z] - a->v[Z] ) * ( c->v[X] - a->v[X] ) -
-         ( b->v[X] - a->v[X] ) * ( c->v[Z] - a->v[Z] ) == 0
-      && ( b->v[X] - a->v[X] ) * ( c->v[Y] - a->v[Y] ) -
-         ( b->v[Y] - a->v[Y] ) * ( c->v[X] - a->v[X] ) == 0  ;
+   CleanEdges();
+   CleanFaces();
+   CleanVertices( pvnext );
 }
 
+/*---------------------------------------------------------------------
+ConstructHull adds the vertices to the hull one at a time.  The hull
+vertices are those in the list marked as onhull.
+---------------------------------------------------------------------*/
+static void ConstructHull( void )
+{
+   tVertex  v, vnext;
+
+   v = vertices;
+   do {
+      vnext = v->next;
+      if( !v->mark ) 
+      {
+         v->mark = PROCESSED;
+      	 AddOne( v );
+      	 CleanUp( &vnext ); /* Pass down vnext in case it gets deleted. */
+      }
+      v = vnext;
+   } while ( v != vertices );
+
+}
+ 
 /*---------------------------------------------------------------------
 Consistency runs through the edge list and checks that all
 adjacent faces have their endpoints in opposite order.  This verifies
 that the vertices are in counterclockwise order.
 ---------------------------------------------------------------------*/
-void	Consistency( void )
+static void Consistency( void )
 {
    register tEdge  e;
    register int    i, j;
@@ -757,7 +546,7 @@ Convexity checks that the volume between every face and every
 point is negative.  This shows that each point is inside every face
 and therefore the hull is convex.
 ---------------------------------------------------------------------*/
-void	Convexity( void )
+static void Convexity( void )
 {
    register tFace    f;
    register tVertex  v;
@@ -790,7 +579,7 @@ CheckEuler checks Euler's relation, as well as its implications when
 all faces are known to be triangles.  Only prints positive information
 when debug is true, but always prints negative information.
 ---------------------------------------------------------------------*/
-void	CheckEuler( int V, int E, int F )
+static void CheckEuler( int V, int E, int F )
 {
    if ( (V - E + F) != 2 )
       fprintf( stderr, "Checks: V-E+F != 2\n");
@@ -804,52 +593,116 @@ void	CheckEuler( int V, int E, int F )
 	      2*E, 3*F, E, F );
 }
 
-/*-------------------------------------------------------------------*/
-/*===================================================================
-These functions are used whenever the debug flag is set.
-They print out the entire contents of each data structure.  
-Printing is to standard error.  To grab the output in a file in the csh, 
-use this:
-	chull < i.file >&! o.file
-=====================================================================*/
-/*-------------------------------------------------------------------*/
-void	PrintVertices( void )
+/*---------------------------------------------------------------------
+Print: Prints out the vertices and the faces.  Uses the vnum indices 
+corresponding to the order in which the vertices were input.
+Output is in PostScript format.
+---------------------------------------------------------------------*/
+static void	Print( void )
 {
-   tVertex  temp;
+   /* Pointers to vertices, edges, faces. */
+   tVertex  v;
+   tEdge    e;
+   tFace    f;
+   /* Counters for Euler's formula. */
+   int 	V = 0, E = 0 , F = 0;
+   /* Note: lowercase==pointer, uppercase==counter. */
 
-   temp = vertices;
-   fprintf (stderr, "Vertex List\n");
-   if (vertices) do {
-      fprintf(stderr,"  addr %6x\t", vertices );
-      fprintf(stderr,"  vnum %4d", vertices->vnum );
-      fprintf(stderr,"   (%6d,%6d,%6d)",vertices->v[X],
-	      vertices->v[Y], vertices->v[Z] );
-      fprintf(stderr,"   active:%3d", vertices->onhull );
-      fprintf(stderr,"   dup:%5x", vertices->duplicate );
-      fprintf(stderr,"   mark:%2d\n", vertices->mark );
-      vertices = vertices->next;
-   } while ( vertices != temp );
+   /* Vertices. */
+   v = vertices;
+   do {                                 
+      if( v->mark ) V++;           
+      v = v->next;
+   } while ( v != vertices );
+   printf("\n%%%% Vertices:\tV = %d\n", V);
+   printf("%%%% index:\tx\ty\tz\n");
+   do {                                 
+      printf( "%%%% %5d:\t%f\t%f\t%f\n", 
+	    v->vnum, P[v->idx].Pos[X], P[v->idx].Pos[Y], P[v->idx].Pos[Z] );
+      v = v->next;
+   } while ( v != vertices );
+	
+   /* Faces. */
+   /* visible faces are printed as PS output */
+   f = faces;
+   do {
+      ++F;                              
+      f  = f ->next;
+   } while ( f  != faces );
+
+   /* prints a list of all faces */
+   printf("%%%% List of all faces: \n");
+   printf("%%%%\tv0\tv1\tv2\t(vertex indices)\n");
+   do {
+      printf("%%%%\t%d\t%d\t%d\n",
+	     f->vertex[0]->vnum,
+	     f->vertex[1]->vnum,
+	     f->vertex[2]->vnum );
+      f = f->next;
+   } while ( f != faces );
+	
+   /* Edges. */	
+   e = edges;
+   do {
+      E++;
+      e = e->next;
+   } while ( e != edges );
+   printf("\n%%%% Edges:\tE = %d\n", E );
+   /* Edges not printed out (but easily added). */
+
+   Consistency();
+   Convexity();
+   CheckEuler( V, E, F );
 
 }
 
-/*-------------------------------------------------------------------*/
-void	PrintFaces( void )
+/*---------------------------------------------------------------------
+ReadVertices: Reads in the vertices, and links them into a circular
+list with MakeNullVertex.  There is no need for the # of vertices to be
+the first line: the function looks for EOF instead.  Sets the global
+variable vertices via the ADD macro.
+---------------------------------------------------------------------*/
+static void ReadVertices( void )
 {
-   int 	  i;
-   tFace  temp;
+   tVertex  v;
+   type_int	i,vnum = 0;
+  
+  for(i=0;i<cp.npart;i++)
+  { 
+    v = MakeNullVertex();
+    v->idx  = i;
+    v->vnum = vnum++;
+  }
 
-   temp = faces;
-   fprintf (stderr, "Face List\n");
-   if (faces) do {
-      fprintf(stderr, "  addr: %10x  ", faces );
-      fprintf(stderr, "  edges:");
-      for( i=0; i<3; ++i )
-	 fprintf(stderr, "%10x ", faces->edge[i] );
-      fprintf(stderr, "  vert:");
-      for ( i=0; i<3; ++i)
-	 fprintf(stderr, "%4d", faces->vertex[i]->vnum );
-      fprintf(stderr, "  vis: %d\n", faces->visible );
-      faces= faces->next;
-   } while ( faces != temp );
+}
 
+
+/*-------------------------------------------------------------------*/
+extern void build_chull()
+{
+  fprintf(stdout,"Init Read\n");
+  fflush(stdout);
+  ReadVertices();
+  fprintf(stdout,"End Read\n");
+  fprintf(stdout,"Init Double Triangle\n");
+  fflush(stdout);
+  DoubleTriangle();
+  fprintf(stdout,"End Double Triangle\n");
+  fprintf(stdout,"Init Construct Hull\n");
+  fflush(stdout);
+  ConstructHull();
+  fprintf(stdout,"End Construct Hull\n");
+  fflush(stdout);
+  Print();
+  fflush(stdout);
+
+  tVertex  v, vnext;
+  v = vertices;
+  do {
+     vnext = v->next;
+     CleanUp( &vnext ); 
+     v = vnext;
+  } while ( v != vertices );
+
+  return;
 }

@@ -9,7 +9,7 @@ EXTRAS += -DPOSFACTOR=1000.0   #Positions in simulation Mpc/h
 
 #CC
 CC     := $(OMPP) gcc $(DOMPP)
-DC     := -DNTHREADS=32
+DC     := -DNTHREADS=30
 #DC     += -DLOCK
 CFLAGS := -Wall -O3 -fopenmp -g
 #GSLL   := -lgsl -lgslcblas
