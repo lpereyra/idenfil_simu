@@ -10,6 +10,9 @@
 #include "timer.h"
 #include "colores.h"
 #include "libfitpack.h"
+#ifdef PARTICLES
+  #include "sph.h"
+#endif
 
 void write(const type_int NNN, const type_real * restrict fof);
 
@@ -37,6 +40,10 @@ int main(int argc, char **argv)
   read_segment(NNN,fof);
 
   suaviza();
+
+  #ifdef PARTICLES
+    calculo_rho();
+  #endif
 
   write(NNN,fof);
 
@@ -100,6 +107,12 @@ void write(const type_int NNN, const type_real * restrict fof)
     fwrite(&Seg[i].len,sizeof(type_real),1,pfpropiedades);
     fwrite(&Seg[i].elong,sizeof(type_real),1,pfpropiedades);
     fwrite(&Seg[i].rms,sizeof(type_real),1,pfpropiedades);
+    #ifdef PARTICLES
+      fwrite(&Seg[i].mass_part,sizeof(type_real),1,pfpropiedades);
+      fwrite(&Seg[i].vol,sizeof(type_real),1,pfpropiedades);
+      fwrite(&Seg[i].rho,sizeof(type_real),1,pfpropiedades);
+      fwrite(&Seg[i].mu,sizeof(type_real),1,pfpropiedades);
+    #endif
 
     fwrite(&Seg[i].size,sizeof(type_int),1,pfout);
     for(j=0;j<Seg[i].size;j++)

@@ -38,9 +38,9 @@ static void set_name(char * name, const type_int NNN, const char * prefix)
   #endif
 
   #ifdef ORIGINAL
-    sprintf(name,"%s%.2d_%.4d",name,snap.num,NNN);
+    sprintf(name,"%s%.2d_%.4d_type_%.2d",name,snap.num,NNN,TYPE_FLAG);
   #else
-    sprintf(name,"%s%.2d_%.4d_smooth",name,snap.num,NNN);
+    sprintf(name,"%s%.2d_%.4d_type_%.2d_smooth",name,snap.num,NNN,TYPE_FLAG);
   #endif
 
   #ifdef CUT_ELONGACION

@@ -195,6 +195,12 @@ extern void init_variables(int argc, char **argv)
   #ifdef LOCK
   BLUE("  LOCK\n");
   #endif
+  #ifdef TYPE_FLAG
+  sprintf(message,"  TYPE_FLAG = %d\n",TYPE_FLAG);BLUE(message);
+  #endif
+  #ifdef POSFACTOR
+  sprintf(message,"  POSFACTOR = %f\n",POSFACTOR);BLUE(message);
+  #endif
   #ifdef VELFACTOR
   sprintf(message,"  VELFACTOR = %f\n",VELFACTOR);BLUE(message);
   #endif

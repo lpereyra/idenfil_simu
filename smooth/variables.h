@@ -26,7 +26,7 @@
 #endif
 
 #ifndef R_SPH
-  #define R_SPH 1000.0
+  #define R_SPH 2000.0
 #endif
 
 #define N_part_types 6    /* Number of particle types */

@@ -21,6 +21,10 @@
 
 #endif
 
+#ifndef TYPE_FLAG
+  #define TYPE_FLAG 2
+#endif
+
 #ifdef CUT_ELONGACION
   #ifndef CUT_ELONG
     #define CUT_ELONG 0.8              

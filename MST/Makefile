@@ -10,7 +10,7 @@ EXTRAS += -DWRITE_WEIGHT
 
 #CC
 CC     := $(OMPP) g++ $(DOMPP)
-DC     := -DNTHREADS=32
+DC     := -DNTHREADS=24
 #DC     += -DLOCK
 CFLAGS := -Wall -O3 -fopenmp -g
 #GSLL   := -lgsl -lgslcblas

@@ -189,11 +189,21 @@ extern void init_variables(int argc, char **argv)
   #ifdef LOCK
   BLUE("  LOCK\n");
   #endif
+  #ifdef TYPE_FLAG
+  sprintf(message,"  TYPE_FLAG = %d\n",TYPE_FLAG);BLUE(message);
+  #endif
+  #ifdef POSFACTOR
+  sprintf(message,"  POSFACTOR = %f\n",POSFACTOR);BLUE(message);
+  #endif
   #ifdef VELFACTOR
   sprintf(message,"  VELFACTOR = %f\n",VELFACTOR);BLUE(message);
   #endif
   #ifdef STORE_VELOCITIES
   BLUE("  STORE_VELOCITIES\n");
+  #endif
+  #ifdef CUT_IN_LEN
+  sprintf(message,"  CUT LEN MIN = %f\n",LEN_MIN);BLUE(message);
+  sprintf(message,"  CUT LEN MAX = %f\n",LEN_MAX);BLUE(message);
   #endif
   #ifdef CALCULA_MEDIA
   BLUE("  CALCULA MEDIA\n");

@@ -11,7 +11,7 @@
 #include "colores.h"
 #include "calcula.h"
 
-void pixelizado(void);
+static void pixelizado(void);
 
 int main(int argc, char **argv)
 {
@@ -34,7 +34,7 @@ int main(int argc, char **argv)
   j = 0;
   for(i=0;i<cp.nseg;i++)
   {
-    if(Seg[i].flag != 2) continue;
+    if(Seg[i].flag != TYPE_FLAG) continue;
     #ifdef CUT_IN_LEN
     if(Seg[i].len<LEN_MIN || Seg[i].len>LEN_MAX) continue;
     #endif
@@ -47,9 +47,11 @@ int main(int argc, char **argv)
 
   GREEN("********** IMPORTANTE ***********\n");
   #ifdef CUT_IN_LEN
-  sprintf(message,"cut LEN %f Mpc REALOCATEA %d fil\n",0.5*(LEN_MIN+LEN_MAX)/1000.0f,cp.nseg);
+    sprintf(message,"cut FLAG == %d && \
+                     LEN MIN %f Mpc & LEN MAX %f REALOCATEA %d fil\n", \
+                     TYPE_FLAG,LEN_MIN/1000.0f,LEN_MAX/1000.0f,cp.nseg);
   #else
-  sprintf(message,"cut FLAG == 2 REALOCATEA %d fil\n",cp.nseg);
+    sprintf(message,"cut FLAG == %d REALOCATEA %d fil\n",TYPE_FLAG,cp.nseg);
   #endif
   GREEN(message);
   GREEN("**********************************\n");
@@ -108,7 +110,7 @@ int main(int argc, char **argv)
 
 }
 
-void pixelizado(void)
+static void pixelizado(void)
 {
   type_int i,j,k;  
   struct grup_data *Gr_aux;

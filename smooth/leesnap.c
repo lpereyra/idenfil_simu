@@ -209,3 +209,113 @@ extern void read_grup_fof(type_real *fof)
   return;
 
 }
+
+#ifdef PARTICLES
+
+static void lee(const char *filename, type_int *ind){
+  FILE *pf;
+  type_int d1, d2;
+  type_int k, pc, n;
+
+  type_real r[3];
+  #ifdef STORE_VELOCITIES
+  type_real v[3];
+  #endif
+  #ifdef STORE_IDS
+  type_int id;
+  #endif
+
+  pf = fopen(filename,"r");
+  if(pf == NULL){
+    fprintf(stderr,"can't open file `%s`\n",filename);
+    exit(EXIT_FAILURE);
+  }
+
+  fprintf(stdout,"Reading file: %s \n",filename); fflush(stdout);
+
+  fread(&d1, sizeof(d1), 1, pf);
+  fread(&header, sizeof(header), 1, pf);
+  fread(&d2, sizeof(d2), 1, pf);
+  assert(d1==d2);
+
+  fread(&d1, sizeof(d1), 1, pf);
+  for(k = 0, pc = 0; k < N_part_types; k++){
+    for(n = 0; n < header.npart[k]; n++){
+      fread(&r[0], size_real, 3, pf);
+      if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
+        P[*ind+pc].Pos[0] = r[0]*POSFACTOR;
+        P[*ind+pc].Pos[1] = r[1]*POSFACTOR;
+        P[*ind+pc].Pos[2] = r[2]*POSFACTOR;
+        pc++;
+      }
+    }
+  }
+  fread(&d2, sizeof(d2), 1, pf);
+  assert(d1==d2);
+
+  fread(&d1, sizeof(d1), 1, pf);
+#ifdef STORE_VELOCITIES
+  for(k = 0, pc = 0; k < N_part_types; k++){
+    for(n = 0; n < header.npart[k]; n++){
+      fread(&v[0], size_real, 3, pf);
+      if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
+        P[*ind+pc].Vel[0] = v[0]*VELFACTOR;
+        P[*ind+pc].Vel[1] = v[1]*VELFACTOR;
+        P[*ind+pc].Vel[2] = v[2]*VELFACTOR;
+        pc++;
+      }
+    }
+  }
+#else
+  fseek(pf,d1,SEEK_CUR);
+#endif
+  fread(&d2, sizeof(d2), 1, pf);
+  assert(d1==d2);
+
+  fread(&d1, sizeof(d1), 1, pf);
+#ifdef STORE_IDS
+  for(k = 0, pc = 0; k < N_part_types; k++){
+    for(n = 0; n < header.npart[k]; n++){
+      fread(&id, size_int, 1, pf);
+      if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
+        P[*ind+pc].id = id;
+        pc++;
+      }
+    }
+  }
+#else
+  fseek(pf,d1,SEEK_CUR);
+#endif
+  fread(&d2, sizeof(d2), 1, pf);
+  assert(d1==d2);
+
+  *ind += pc;
+  
+  fclose(pf);
+}
+
+extern void read_gadget(void){
+  char filename[200];
+  type_int ifile, ind;
+  size_t total_memory;
+
+  /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
+  total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
+  printf("Allocating %.5zu Gb for %u particles\n",total_memory,cp.npart);
+  P = (struct particle_data *) malloc(cp.npart*sizeof(struct particle_data));
+  assert(P != NULL);
+ 
+  /***** LEE POS Y VEL DE LAS PARTICULAS ***********************/
+  for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++){
+    if(snap.nfiles>1)
+      sprintf(filename,"%s%s.%d",snap.root,snap.name,ifile);
+    else
+      sprintf(filename,"%s%s",snap.root,snap.name);
+
+    lee(filename,&ind);
+  }
+
+  fprintf(stdout,"End reading snapshot file(s)...\n"); fflush(stdout);
+}
+
+#endif

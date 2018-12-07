@@ -32,7 +32,7 @@ static void set_name(char * name, const type_int NNN, const char * prefix)
 
   sprintf(name,"%.2d_%.4d",snap.num,NNN);
 
-  sprintf(name,"%s_pares",name);
+  sprintf(name,"%s_type_%.2d_pares",name,TYPE_FLAG);
 
   #ifdef MCRITIC
     sprintf(name,"%s_cut_%.2f",name,m_critica);
@@ -127,7 +127,7 @@ static void sum_matrix(const type_int idpar,const type_int idfil, const type_int
   rlen = mod_r;
 
   #ifdef EXTEND
-  rlen += (2.0f*RAUX);
+  rlen += (mod_r);
   #endif
 
   ////////////////////////////////////////////////////////////////////////////////////////////
@@ -136,7 +136,8 @@ static void sum_matrix(const type_int idpar,const type_int idfil, const type_int
   //REGION EXTEND
   //
   
-  rsep = RAUX;
+  //rsep   = RAUX;
+  rsep = 0.5*mod_r;
 
   r = 0.0f;
   for(idim=0;idim<3;idim++)
@@ -223,7 +224,8 @@ static void sum_matrix(const type_int idpar,const type_int idfil, const type_int
   //REGION EXTEND
   //
 
-  rsep   = RAUX;
+  //rsep   = RAUX;
+  rsep = 0.5*mod_r;
 
   r = 0.0f;
   for(idim=0;idim<3;idim++)
@@ -381,7 +383,7 @@ static void sum_matrix(const type_int idpar,const type_int idfil, const type_int
   {
 
     #ifdef EXTEND
-      r = rsep-RAUX;
+      r = rsep-mod_r;
     #else
       r = rsep;
     #endif
@@ -552,7 +554,8 @@ static void calc_search_fil(const type_real * restrict Pos_cent,  const type_rea
           if(dis<r_2)
           {
             struct data_list dat;
-            dat.id = (i%cp.nseg);
+            //dat.id = (i%cp.nseg);
+            dat.id = Seg_cent[i].Id;
             dat.r  = dis;  // el cuadrado
             push_list(lista, dat);
           }// cierra el if
@@ -602,12 +605,15 @@ static void calcular_pert(const type_int i, const type_real rbus)
 
 static void build_rand(void)
 {
-  type_int i,j,k,idim;
+  type_int i,j,k,l,idim;
   type_real alfa, delta;
-  type_real vdir[3];
+  type_real vdir[3], r;
+  type_int  count = 0;
 
   for(i=0;i<cp.nseg;i++)
   { 
+
+    Seg_cent[i].Id = i;
     memcpy(Seg_cent[i].Pos,Gr[Seg[i].list[cpy]].Pos,3*sizeof(type_real)); 
 
     for(j=1;j<=NRAND;j++)
@@ -621,18 +627,114 @@ static void build_rand(void)
       vdir[2] = sin(delta);    
 
       k = i+j*cp.nseg;
+      Seg_cent[k].Id = i;
 
       for(idim=0;idim<3;idim++)
-      { 
-        Seg_cent[k].Pos[idim] = Seg_cent[i].Pos[idim] + Seg[i].len*vdir[idim];
+      {
+        r = Seg[i].len;
+        Seg_cent[k].Pos[idim] = Seg_cent[i].Pos[idim] + r*vdir[idim];
         #ifdef PERIODIC
         Seg_cent[k].Pos[idim] = Seg_cent[k].Pos[idim] >= cp.lbox ? Seg_cent[k].Pos[idim]-cp.lbox : Seg_cent[k].Pos[idim];
         Seg_cent[k].Pos[idim] = Seg_cent[k].Pos[idim] <      0.0 ? Seg_cent[k].Pos[idim]+cp.lbox : Seg_cent[k].Pos[idim];
         #endif
       }
     }
+    
+    if(Seg[i].len>2.0*RAUX)
+    { 
+      j = (type_int)((0.5*Seg[i].len)/RAUX); 
+      j = j == 0 ? 2*NRAND : 2*j*NRAND;
+      count += j;
+    }
   }
+
+  cp.ncen_rand += count;
+  Seg_cent = (struct centr_data *) realloc(Seg_cent,cp.ncen_rand*sizeof(struct centr_data));
   
+  count = (NRAND+1)*cp.nseg;
+
+  for(i=0;i<cp.nseg;i++)
+  { 
+    if(Seg[i].len>2.0*RAUX)
+    { 
+      k  = (type_int)((0.5*Seg[i].len)/RAUX);
+      k = k == 0 ? 1 : k;
+      
+      if(cpy==0)
+      {
+
+        for(j=1;j<=NRAND;j++)
+        {
+          search_vdir(vdir,&r,i,i+j*cp.nseg);    
+
+          for(l=0;l<k;l++)
+          {
+            r = (type_real)(l+1)*RAUX;
+            for(idim=0;idim<3;idim++)
+            {
+              Seg_cent[count].Pos[idim] = Seg_cent[i].Pos[idim] - r*vdir[idim];
+              #ifdef PERIODIC
+              Seg_cent[count].Pos[idim] = Seg_cent[count].Pos[idim] >= cp.lbox ? Seg_cent[count].Pos[idim]-cp.lbox : Seg_cent[count].Pos[idim];
+              Seg_cent[count].Pos[idim] = Seg_cent[count].Pos[idim] <      0.0 ? Seg_cent[count].Pos[idim]+cp.lbox : Seg_cent[count].Pos[idim];
+              #endif
+            }
+            Seg_cent[count].Id = i;
+            count++;
+
+            for(idim=0;idim<3;idim++)
+            {
+              Seg_cent[count].Pos[idim] = Seg_cent[i+j*cp.nseg].Pos[idim] + r*vdir[idim];
+              #ifdef PERIODIC
+              Seg_cent[count].Pos[idim] = Seg_cent[count].Pos[idim] >= cp.lbox ? Seg_cent[count].Pos[idim]-cp.lbox : Seg_cent[count].Pos[idim];
+              Seg_cent[count].Pos[idim] = Seg_cent[count].Pos[idim] <      0.0 ? Seg_cent[count].Pos[idim]+cp.lbox : Seg_cent[count].Pos[idim];
+              #endif
+            }
+            Seg_cent[count].Id = i;
+            count++;
+          }
+        }
+
+      }else{
+
+        for(j=1;j<=NRAND;j++)
+        {
+          search_vdir(vdir,&r,i+j*cp.nseg,i);
+
+          for(l=0;l<k;l++)
+          {
+            r = (type_real)(l+1)*RAUX;
+            for(idim=0;idim<3;idim++)
+            {
+              Seg_cent[count].Pos[idim] = Seg_cent[i].Pos[idim] - r*vdir[idim];
+              #ifdef PERIODIC
+              Seg_cent[count].Pos[idim] = Seg_cent[count].Pos[idim] >= cp.lbox ? Seg_cent[count].Pos[idim]-cp.lbox : Seg_cent[count].Pos[idim];
+              Seg_cent[count].Pos[idim] = Seg_cent[count].Pos[idim] <      0.0 ? Seg_cent[count].Pos[idim]+cp.lbox : Seg_cent[count].Pos[idim];
+              #endif
+            }
+            Seg_cent[count].Id = i;
+            count++;
+
+            for(idim=0;idim<3;idim++)
+            {
+              Seg_cent[count].Pos[idim] = Seg_cent[i+j*cp.nseg].Pos[idim] + r*vdir[idim];
+              #ifdef PERIODIC
+              Seg_cent[count].Pos[idim] = Seg_cent[count].Pos[idim] >= cp.lbox ? Seg_cent[count].Pos[idim]-cp.lbox : Seg_cent[count].Pos[idim];
+              Seg_cent[count].Pos[idim] = Seg_cent[count].Pos[idim] <      0.0 ? Seg_cent[count].Pos[idim]+cp.lbox : Seg_cent[count].Pos[idim];
+              #endif
+            }
+            Seg_cent[count].Id = i;
+            count++;
+          }
+        }
+      }
+    }
+
+  }
+
+
+
+
+
 
   return;
 

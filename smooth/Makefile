@@ -10,18 +10,17 @@ EXTRAS += -DPOSFACTOR=1000.0   #Positions in Kpc
 #EXTRAS += -DCALCULA_MEDIA
 #EXTRAS += -DFIX_NSMOOTH
 EXTRAS += -DITERA
-#EXTRAS += -DNEW
 
 #CC
 CC      := $(OMPP) gcc $(DOMPP)
-DC      := -DNTHREADS=4
+DC      := -DNTHREADS=32
 CFLAGS  := -Wall -O3 -fopenmp -march=native -g
 LDFLAGS := -lm -lgfortran 
 FC      := gfortran
 FFLAGS  := -cpp -O3 -fbounds-check 
 
-.PHONY : cleanall clean todo 
-
+.PHONY : clean todo 
+ 
 MAKEFILE := Makefile
 
 OBJS := leesnap.o variables.o libfitpack.o
@@ -50,7 +49,7 @@ todo: $(EXEC)
 %.f.o: $(OBJS_FITPACK) 
 	$(FC) $(FFLAGS) -c $<
 
-smooth.x: smooth.c $(OBJS) $(OBJS_FITPACK)
+smooth.x: smooth.c $(OBJS) $(OBJS_FITPACK) 
 	$(CC) $(CFLAGS) $(EXTRAS) $(DC) $^  -o $@ $(LDFLAGS)
 
 clean:

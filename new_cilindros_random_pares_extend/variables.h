@@ -9,6 +9,10 @@
   #define VELFACTOR 1.0
 #endif
 
+#ifndef TYPE_FLAG
+  #define TYPE_FLAG 2
+#endif
+
 #ifdef CUT_IN_LEN
 
   #ifndef LEN_MIN
@@ -96,6 +100,7 @@ struct grup_data
 
 struct centr_data
 { 
+  type_int   Id;
   type_real  Pos[3];
 } *Seg_cent;
 
