@@ -45,6 +45,14 @@ struct grup_data
   type_int   id;
   type_real  Pos[3];
   type_int   NumPart;
+  type_real  Mass;
+  type_real  aa;
+  type_real  bb;
+  type_real  cc;
+  type_real  ParP;
+  type_real  vcm[3];
+  type_real  L[3];
+  type_real  evec[9];
 };
 
 extern size_t size_real;

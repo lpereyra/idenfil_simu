@@ -253,7 +253,7 @@ extern void select_particles_fof(type_real prefix)
 extern void read_grup_fof(type_real prefix)
 {
   char filename[200];
-  type_int i;
+  type_int i,k;
   FILE *pfin;
   #ifdef MCRITIC
   type_int j;
@@ -335,5 +335,38 @@ extern void read_grup_fof(type_real prefix)
   RED("Finaliza la lectura de los grupos\n"); fflush(stdout);
 
   fclose(pfin);
+
+  #ifdef MCRITIC
+    sprintf(filename,"../halos_propiedades/%.2d_%.2f_centros_propiedades_cut_%.2f.bin",snap.num,prefix,m_critica);
+  #else
+    sprintf(filename,"../halos_propiedades/%.2d_%.2f_centros_propiedades.bin",snap.num,prefix);
+  #endif
+  pfin = fopen(filename,"rb"); 
+
+  fread(&k,sizeof(type_int),1,pfin);        
+  assert(cp.ngrup == k);
+
+  for(i=0;i<cp.ngrup;i++)
+  {
+    fread(&k,sizeof(type_int),1,pfin);
+    assert(Gr[i].save == k);
+    fread(&k,sizeof(type_int),1,pfin);
+    assert(Gr[i].id == k);
+    fread(&k,sizeof(type_int),1,pfin);
+    assert(Gr[i].NumPart == k);
+
+    fread(&Gr[i].Mass,sizeof(type_real),1,pfin);
+    fread(&Gr[i].aa,sizeof(type_real),1,pfin);
+    fread(&Gr[i].bb,sizeof(type_real),1,pfin);
+    fread(&Gr[i].cc,sizeof(type_real),1,pfin);
+    fread(&Gr[i].ParP,sizeof(type_real),1,pfin);
+    fread(&Gr[i].vcm[0],sizeof(type_real),3,pfin);
+    fread(&Gr[i].L[0],sizeof(type_real),3,pfin);
+    fread(&Gr[i].evec[0],sizeof(type_real),9,pfin);
+  }
+
+  fclose(pfin);
+
+  return;
 
 }

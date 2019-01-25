@@ -78,6 +78,7 @@ struct segmentstd
   type_real rms;
   #ifdef CALCULA_MEDIA
     type_real *Vmedia;
+    type_real Rvir[2];
   #endif
   #ifdef CALCULA_VCM
     type_real Vmedia[3];
