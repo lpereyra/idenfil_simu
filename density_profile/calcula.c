@@ -11,38 +11,34 @@
 #include "leesnap.h"
 #include "grid.h"
 #include "list.h"
+#include "timer.h"
+
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #define IX(i,j,n) n*j+i
 
-static const type_real r_interior = 2000.; // En Kpc
-
 //////////////////////////////
 static type_int  **matrix_npart;
-static type_int  *matrix_mass;
-//////////////////////////////
-static type_real **matrix_mean_per;
-static type_real **matrix_quad_per;
-static type_real **matrix_mean_par;
-static type_real **matrix_quad_par;
-#ifdef MU_SIGMA
-  static type_real  *matrix_media;
-  static type_real  *matrix_sigma;
-#endif 
 //////////////////////////////
 #ifdef LOCK
   static omp_lock_t *lock; 
 #endif
-#ifdef CALCULA_MEDIA
-  static type_int *matrix_sum_npart;
-#endif
 
 static void set_name(char * name, const type_int NNN, const char * prefix)
 {
-  #ifdef CUT_ELONGACION
-    sprintf(name,"../test_elongacion/");
+  struct stat st = {0};
+
+  #ifdef RANDOM
+    sprintf(name,"./random/");
   #else
-    sprintf(name,"./");
+    sprintf(name,"./data/");
   #endif
+
+  if(stat(name, &st) == -1) 
+  {
+    mkdir(name, 0700);
+  }
 
   #ifdef ORIGINAL
     sprintf(name,"%s%.2d_%.4d_type_%.2d",name,snap.num,NNN,TYPE_FLAG);
@@ -68,12 +64,14 @@ static void set_name(char * name, const type_int NNN, const char * prefix)
     sprintf(name,"%s_vcm",name);
   #endif
 
-  #ifdef CALCULA_MEDIA
-    sprintf(name,"%s_media",name);
-  #endif
-
   #ifdef EXTEND
     sprintf(name,"%s_extend",name);
+  #endif
+
+  #ifdef RANDOM
+    sprintf(name,"%s_%.2d_random",name,NRANDOM);
+  #else
+    sprintf(name,"%s_data",name);
   #endif
 
   #ifdef FIXED_SEPARATION
@@ -139,12 +137,12 @@ static void set_name(char * name, const type_int NNN, const char * prefix)
 
 #endif
 
-static void calc_fil_dis(const type_int idpar, const type_int idfil, const type_real * restrict rcil2)
+static void calc_fil_dis(const type_real * restrict Pos_idpar, const type_int idfil, const type_real * restrict rcil2)
 {
   int j, k, idim, ix, iy, iseg;
   type_real racum_min,rx_min,ry_min;
   type_real r,rsep,rlen,racum,dot,dis;
-  type_real Pos_cent[3], vdir[3], vprima[3], delta[3];
+  type_real Pos_cent[3], vdir[3], delta[3];
 
   iseg = -1;
   dis = racum = 0.0f;
@@ -189,7 +187,7 @@ static void calc_fil_dis(const type_int idpar, const type_int idfil, const type_
   r = 0.0f;
   for(idim=0;idim<3;idim++)
   {
-    delta[idim] = P[idpar].Pos[idim] - Pos_cent[idim];
+    delta[idim] = Pos_idpar[idim] - Pos_cent[idim];
     #ifdef PERIODIC
     if(delta[idim]> 0.5*cp.lbox) delta[idim] -= cp.lbox;
     if(delta[idim]<-0.5*cp.lbox) delta[idim] += cp.lbox;
@@ -247,7 +245,7 @@ static void calc_fil_dis(const type_int idpar, const type_int idfil, const type_
     r = 0.0f;
     for(idim=0;idim<3;idim++)
     {
-      delta[idim] = P[idpar].Pos[idim] - Pos_cent[idim];
+      delta[idim] = Pos_idpar[idim] - Pos_cent[idim];
       #ifdef PERIODIC
       if(delta[idim]> 0.5*cp.lbox) delta[idim] -= cp.lbox;
       if(delta[idim]<-0.5*cp.lbox) delta[idim] += cp.lbox;
@@ -306,7 +304,7 @@ static void calc_fil_dis(const type_int idpar, const type_int idfil, const type_
   r = 0.0f;
   for(idim=0;idim<3;idim++)
   {
-    delta[idim] = P[idpar].Pos[idim] - Pos_cent[idim];
+    delta[idim] = Pos_idpar[idim] - Pos_cent[idim];
     #ifdef PERIODIC
     if(delta[idim]> 0.5*cp.lbox) delta[idim] -= cp.lbox;
     if(delta[idim]<-0.5*cp.lbox) delta[idim] += cp.lbox;
@@ -388,123 +386,10 @@ static void calc_fil_dis(const type_int idpar, const type_int idfil, const type_
   j = IX(ix,iy,j);
   assert(j<ncil*k);
 
-  for(idim=0;idim<3;idim++)
-  {
-   vprima[idim] = P[idpar].Vel[idim]; // asigna
-
-   #ifdef CALCULA_MEDIA
-     vprima[idim] -= Seg[idfil].Vmedia[idim]; // asigna
-   #endif
-
-   #ifdef CALCULA_VCM
-     vprima[idim] -= Seg[idfil].Vmedia[idim]; // asigna
-   #endif
-
-   delta[idim] = P[idpar].Pos[idim] - Pos_cent[idim];
-   #ifdef PERIODIC
-   if(delta[idim] >  0.5*cp.lbox) delta[idim] -= cp.lbox;
-   if(delta[idim] < -0.5*cp.lbox) delta[idim] += cp.lbox;
-   #endif
-  }
-
-  r = dot = 0.0f;
-  for(idim=0;idim<3;idim++)
-  {
-    dot += (vprima[idim]*vdir[idim]);
-  
-    delta[idim] -= rx_min*vdir[idim];
-  
-    #ifdef PERIODIC
-    if(delta[idim]>  0.5f*cp.lbox) delta[idim] -= cp.lbox;
-    if(delta[idim]< -0.5f*cp.lbox) delta[idim] += cp.lbox;
-    #endif
-  
-    r += (delta[idim]*delta[idim]);
-  }
-  
-  r = sqrt(r);
-
-  racum = 0.0f;
-  for(idim=0;idim<3;idim++)
-  {
-    delta[idim] *= (1.0f/r);
-    racum += (vprima[idim]*delta[idim]);
-  }
-
-  //#ifdef EXTEND
-  //  r = rsep-RAUX;
-  //  r *= (1.0/Seg[idfil].len_extend);
-  //#else
-  //  r = rsep;
-  //  r *= (1.0/Seg[idfil].len);
-  //#endif
-
-  r = rsep/Seg[idfil].len;
-  #ifdef EXTEND
-    r -= 0.5;
-  #endif
-
-  if(r>0.0 && r<1.00)
-  {
-    if(r_interior<sqrt(ry_min))
-    {
-
-      iseg = -1;
-
-    }else{
-
-      r = 0.0f;
-      for(idim=0;idim<3;idim++)
-      {
-        delta[idim] = P[idpar].Pos[idim] - Gr[Seg[idfil].list[0]].Pos[idim];
-        #ifdef PERIODIC
-        delta[idim] = delta[idim] >= cp.lbox ? delta[idim]-cp.lbox : delta[idim];
-        delta[idim] = delta[idim] <      0.0 ? delta[idim]+cp.lbox : delta[idim];
-        #endif
-        r += delta[idim]*delta[idim];
-      }
-
-      if(r<Seg[idfil].Rvir[0])
-      {
-        iseg =  -1;
-      }else{
-        r = 0.0f;
-        for(idim=0;idim<3;idim++)
-        {
-          delta[idim] = P[idpar].Pos[idim] - Gr[Seg[idfil].list[Seg[idfil].size-1]].Pos[idim];
-          #ifdef PERIODIC
-          delta[idim] = delta[idim] >= cp.lbox ? delta[idim]-cp.lbox : delta[idim];
-          delta[idim] = delta[idim] <      0.0 ? delta[idim]+cp.lbox : delta[idim];
-          #endif
-          r += delta[idim]*delta[idim];
-        }
-        
-        if(r<Seg[idfil].Rvir[1])
-          iseg =  -1;
-        else
-          iseg =  1;
-      }
-    }
-  }else{
-    iseg = -1;
-  }
-
   #ifdef LOCK
   omp_set_lock(&lock[idfil]);
   #endif
-  matrix_mean_par[idfil][j] += dot;
-  matrix_quad_par[idfil][j] += (dot*dot);
-  matrix_mean_per[idfil][j] += racum;
-  matrix_quad_per[idfil][j] += (racum*racum);  
   matrix_npart[idfil][j]++;
-  if(iseg>0)
-  {
-    matrix_mass[idfil]++;
-    #ifdef MU_SIGMA
-      matrix_media[idfil] += racum;
-      matrix_sigma[idfil] += (racum*racum);
-    #endif
-  }
   #ifdef LOCK
   omp_unset_lock(&lock[idfil]);
   #endif
@@ -606,157 +491,13 @@ static void calc_search_fil(const type_real * restrict Pos_cent,  const type_rea
   return;
 }
 
-#ifdef CALCULA_MEDIA
-
-  static void calc_fil_mean(const type_int idpar, const type_int idfil, const type_real rcil2)
-  {
-    int k, idim, iseg;
-    type_real r,rsep,racum,dot,dis,ry_min;
-    type_real Pos_cent[3], vdir[3], delta[3];
-
-    r = 0.0f;
-    for(idim=0;idim<3;idim++)
-    {
-      delta[idim] = P[idpar].Pos[idim] - Gr[Seg[idfil].list[0]].Pos[idim];
-      #ifdef PERIODIC
-      delta[idim] = delta[idim] >= cp.lbox ? delta[idim]-cp.lbox : delta[idim];
-      delta[idim] = delta[idim] <      0.0 ? delta[idim]+cp.lbox : delta[idim];
-      #endif
-      r += delta[idim]*delta[idim];
-    }
-    
-    if(r<Seg[idfil].Rvir[0])
-      return;
-
-    r = 0.0f;
-    for(idim=0;idim<3;idim++)
-    {
-      delta[idim] = P[idpar].Pos[idim] - Gr[Seg[idfil].list[Seg[idfil].size-1]].Pos[idim];
-      #ifdef PERIODIC
-      delta[idim] = delta[idim] >= cp.lbox ? delta[idim]-cp.lbox : delta[idim];
-      delta[idim] = delta[idim] <      0.0 ? delta[idim]+cp.lbox : delta[idim];
-      #endif
-      r += delta[idim]*delta[idim];
-    }
-    
-    if(r<Seg[idfil].Rvir[1])
-      return;
-
-    ////////////////////////////////////////////////////////////////////////////////////////////
-   
-    iseg = -1;
-    dis = racum = 0.0f;
-    ry_min = cp.lbox*cp.lbox;
-    
-    ////////////////////////////////////////////////////////////////////////////////////////////
-  
-    //
-    // REGION INTERNA
-    //
-  
-    for(k=1;k<Seg[idfil].size;k++)
-    {
-  
-      r = 0.0f;
-      for(idim=0;idim<3;idim++)
-      {
-        vdir[idim] = Gr[Seg[idfil].list[k]].Pos[idim]-Gr[Seg[idfil].list[k-1]].Pos[idim];    
-        #ifdef PERIODIC
-        if(vdir[idim]> 0.5*cp.lbox) vdir[idim] -= cp.lbox;
-        if(vdir[idim]<-0.5*cp.lbox) vdir[idim] += cp.lbox;
-        #endif
-        r += vdir[idim]*vdir[idim];
-      }
-      r = sqrt(r);
-      rsep = r; // para mirar si caigo adentro del cilindro
-  
-      //#pragma unroll
-      for(idim=0;idim<3;idim++)
-      {
-        vdir[idim] *= (1/r); // directo
-        Pos_cent[idim] = Gr[Seg[idfil].list[k-1]].Pos[idim];
-        #ifdef PERIODIC
-        Pos_cent[idim] = Pos_cent[idim] >= cp.lbox ? Pos_cent[idim]-cp.lbox : Pos_cent[idim];
-        Pos_cent[idim] = Pos_cent[idim] <      0.0 ? Pos_cent[idim]+cp.lbox : Pos_cent[idim];
-        #endif
-      }
-  
-      r = 0.0f;
-      for(idim=0;idim<3;idim++)
-      {
-        delta[idim] = P[idpar].Pos[idim] - Pos_cent[idim];
-        #ifdef PERIODIC
-        if(delta[idim]> 0.5*cp.lbox) delta[idim] -= cp.lbox;
-        if(delta[idim]<-0.5*cp.lbox) delta[idim] += cp.lbox;
-        #endif
-        r += delta[idim]*delta[idim];
-      }
-  
-      dot = delta[0]*vdir[0] + delta[1]*vdir[1] + delta[2] * vdir[2];
-  
-      // SI ENTRA EN MI CILINDRO
-      if(dot>=0.0f && dot<=rsep) 
-      {
-        dis = fabs(r - dot*dot);
-        if(dis<ry_min && dis<rcil2)
-        {
-          ry_min = dis;
-          iseg = k;
-        }
-      }
-  
-      racum += rsep;
-    }
-  
-    ////////////////////////////////////////////////////////////////////////////////////////////
-    
-    if(iseg<0)
-      return;
-  
-    #ifdef LOCK
-    omp_set_lock(&lock[idfil]);
-    #endif
-    Seg[idfil].Vmedia[0] += P[idpar].Vel[0];
-    Seg[idfil].Vmedia[1] += P[idpar].Vel[1];
-    Seg[idfil].Vmedia[2] += P[idpar].Vel[2];
-    matrix_sum_npart[idfil]++;
-    #ifdef LOCK
-    omp_unset_lock(&lock[idfil]);
-    #endif
-    
-    return;
-  }
-  
-  static void calcular_media(const type_int i, const type_real rbus)
-  {
-    struct list *root;
-    struct list *aux_lista_fil = NULL;
-    const type_real rcil2 = r_interior*r_interior;
-  
-    calc_search_fil(P[i].Pos,rbus*rbus,&aux_lista_fil);             
-    remove_duplicates(aux_lista_fil);
-  
-    while(aux_lista_fil != NULL)
-    {
-      root = aux_lista_fil;
-      calc_fil_mean(i,root->data.id,rcil2);
-      aux_lista_fil = aux_lista_fil->next;
-      free(root);
-    }
-  
-    return;
-  }
-
-
-#endif
-
-static void calcular_pert(const type_int i, const type_real rbus)
+static void calcular_pert(const type_real * restrict Pos_idpar, const type_real rbus)
 {
   struct list *root;
   struct list *aux_lista_fil = NULL;
   type_real *rcil2;
 
-  calc_search_fil(P[i].Pos,rbus*rbus,&aux_lista_fil);             
+  calc_search_fil(Pos_idpar,rbus*rbus,&aux_lista_fil);             
 
   remove_duplicates(aux_lista_fil);
 
@@ -771,7 +512,7 @@ static void calcular_pert(const type_int i, const type_real rbus)
   while(aux_lista_fil != NULL)
   {
     root = aux_lista_fil;
-    calc_fil_dis(i,root->data.id,rcil2);
+    calc_fil_dis(Pos_idpar,root->data.id,rcil2);
     aux_lista_fil = aux_lista_fil->next;
     free(root);
   }
@@ -783,18 +524,12 @@ static void calcular_pert(const type_int i, const type_real rbus)
 
 extern void propiedades(type_int NNN, type_real *fof)
 {
-  type_int i,j,k;
+  long i,j,k;
   const type_real r_aux = 2.0f*RAUX; // RADIO DE BUSQUEDA EN Kpc
   type_real *rcil2, *volinv;
   type_real aux,r,rlong;
   char filename[200];
   FILE *pf;
-  #ifdef MU_SIGMA
-  FILE *pf_mu_sig;
-  #endif
-  #ifdef CALCULA_MEDIA
-  FILE *pf_vel;
-  #endif
 
   #ifdef EXTEND
 
@@ -840,21 +575,9 @@ extern void propiedades(type_int NNN, type_real *fof)
   j += nbins;
   #endif
 
-  matrix_mean_per = (type_real **) malloc(cp.nseg*sizeof(type_real *));
-  matrix_quad_per = (type_real **) malloc(cp.nseg*sizeof(type_real *));
-  matrix_mean_par = (type_real **) malloc(cp.nseg*sizeof(type_real *));
-  matrix_quad_par = (type_real **) malloc(cp.nseg*sizeof(type_real *));
   matrix_npart    = (type_int  **) malloc(cp.nseg*sizeof(type_int  *));
-  matrix_mass   = (type_int   *)  calloc(cp.nseg,sizeof(type_int ));
-  #ifdef MU_SIGMA
-    matrix_media  = (type_real  *)  calloc(cp.nseg,sizeof(type_real));
-    matrix_sigma  = (type_real  *)  calloc(cp.nseg,sizeof(type_real));
-  #endif
   #ifdef LOCK
     lock = (omp_lock_t *) malloc(cp.nseg*sizeof(omp_lock_t));
-  #endif
-  #ifdef CALCULA_MEDIA
-    matrix_sum_npart = (type_int *) malloc(cp.nseg*sizeof(type_int *));
   #endif
   aux  = cbrt(3.0/(4.0*M_PI*cp.Mpart*(type_real)cp.npart));
   aux *= cp.lbox;
@@ -862,10 +585,6 @@ extern void propiedades(type_int NNN, type_real *fof)
 
   for(i=0;i<cp.nseg;i++)  
   {
-    matrix_mean_per[i] = (type_real *) calloc(ncil*j,sizeof(type_real));
-    matrix_quad_per[i] = (type_real *) calloc(ncil*j,sizeof(type_real));
-    matrix_mean_par[i] = (type_real *) calloc(ncil*j,sizeof(type_real));
-    matrix_quad_par[i] = (type_real *) calloc(ncil*j,sizeof(type_real));
     matrix_npart[i]    = (type_int  *) calloc(ncil*j,sizeof(type_int ));
     Seg[i].Rvir[0] = cbrt(Seg[i].Mass[0])*aux;
     Seg[i].Rvir[1] = cbrt(Seg[i].Mass[1])*aux;
@@ -874,11 +593,6 @@ extern void propiedades(type_int NNN, type_real *fof)
     #ifdef LOCK
       omp_init_lock(&(lock[i]));
     #endif
-
-    #ifdef CALCULA_MEDIA
-      matrix_sum_npart[i] = 0.0f;
-      Seg[i].Vmedia       = (type_real *) calloc(3,sizeof(type_real));
-    #endif  
   }
 
   #ifdef NTHREADS
@@ -908,40 +622,69 @@ extern void propiedades(type_int NNN, type_real *fof)
 
   #endif
 
-  #ifdef CALCULA_MEDIA
+  #ifdef RANDOM
 
-    GREEN("CALCULA MEDIA\n");
+    long *nrand;
+    nrand = (long *) malloc(NTHREADS*sizeof(long));
+
+    pf=fopen("/dev/urandom","r");
+    for(i=0;i<NTHREADS;i++)
+      fread(&nrand[i],sizeof(long),1,pf);
+    fclose(pf);
+
+    #ifdef EXTEND
+      sprintf(filename,"seed_extend_type_%.2d.dat",TYPE_FLAG);
+    #else
+      sprintf(filename,"seed_type_%.2d.dat",TYPE_FLAG);
+    #endif
+    pf = fopen(filename,"w");
+
+    fprintf(pf,"%d\n",NTHREADS);
+    for(i=0;i<NTHREADS;i++)
+      fprintf(pf,"%d %ld\n",(int)i,nrand[i]);
+    fclose(pf);
+  
+    k = 0;
+    #pragma omp parallel \
+    num_threads(NTHREADS) default(none) \
+    private(i) shared(cp,nrand,stdout) \
+    reduction(+:k)
+    {
+      type_int  Tid = omp_get_thread_num(); 
+      type_real Pos_rand[3];
+
+      srand48(nrand[Tid]); // guarda la semilla
+    
+      nrand[Tid] = NRANDOM*(long)cp.npart/NTHREADS;
+      nrand[Tid] = Tid==NTHREADS-1 ? NRANDOM*(long)cp.npart-(NTHREADS-1)*nrand[Tid] : nrand[Tid];
+
+      for(i=0;i<nrand[Tid];i++)
+      {
+        if(i%10000000==0) fprintf(stdout,"%u %.4f\n",Tid,(float)i/(float)nrand[Tid]);
+        Pos_rand[0] = drand48()*cp.lbox;
+        Pos_rand[1] = drand48()*cp.lbox;
+        Pos_rand[2] = drand48()*cp.lbox;
+        calcular_pert(Pos_rand,r_aux);
+        k++;
+      }
+
+    }
+    
+    assert((NRANDOM*(long)cp.npart)==k);
+    free(nrand);
+
+  #else
 
     #pragma omp parallel for num_threads(NTHREADS) \
     schedule(dynamic) default(none) \
-    private(i) shared(cp,stdout)
+    private(i) shared(cp,P,stdout)
     for(i=0;i<cp.npart;i++)
     {
-      if(i%1000000==0) fprintf(stdout,"%u %.4f\n",i,(float)i/(float)cp.npart);
-      calcular_media(i,r_aux);
+      if(i%1000000==0) fprintf(stdout,"%ld %.4f\n",i,(float)i/(float)cp.npart);
+      calcular_pert(P[i].Pos,r_aux);
     }
-
-    for(i=0;i<cp.nseg;i++)  
-    {
-      Seg[i].Vmedia[0] *= (matrix_sum_npart[i]>0 ? 1.0f/(type_real)matrix_sum_npart[i] : 0.0);
-      Seg[i].Vmedia[1] *= (matrix_sum_npart[i]>0 ? 1.0f/(type_real)matrix_sum_npart[i] : 0.0);
-      Seg[i].Vmedia[2] *= (matrix_sum_npart[i]>0 ? 1.0f/(type_real)matrix_sum_npart[i] : 0.0);
-    }
-
-    free(matrix_sum_npart);
-
-    GREEN("Termina el calculo\n");
 
   #endif
-
-  #pragma omp parallel for num_threads(NTHREADS) \
-  schedule(dynamic) default(none) \
-  private(i) shared(cp,stdout)
-  for(i=0;i<cp.npart;i++)
-  {
-    if(i%1000000==0) fprintf(stdout,"%u %.4f\n",i,(float)i/(float)cp.npart);
-    calcular_pert(i,r_aux);
-  }
 
   GREEN("******************************\n");
   BLUE("******************************\n");
@@ -954,17 +697,6 @@ extern void propiedades(type_int NNN, type_real *fof)
 
   set_name(filename,NNN,"matrix");
   pf = fopen(filename,"w");
-  #ifdef CALCULA_MEDIA
-    set_name(filename,NNN,"velocidades");
-    pf_vel = fopen(filename,"w");
-    fwrite(&cp.nseg,sizeof(type_int),1,pf_vel);        
-  #endif
-
-  #ifdef MU_SIGMA
-    set_name(filename,NNN,"mu_sigma");
-    pf_mu_sig = fopen(filename,"w");
-    fwrite(&cp.nseg,sizeof(type_int),1,pf_mu_sig);        
-  #endif
 
   fwrite(&cp.nseg,sizeof(type_int),1,pf);        
   fwrite(&j,sizeof(type_int),1,pf);        
@@ -975,47 +707,6 @@ extern void propiedades(type_int NNN, type_real *fof)
     Seg[i].Rvir[0] = sqrt(Seg[i].Rvir[0]);
     Seg[i].Rvir[1] = sqrt(Seg[i].Rvir[1]);
     
-    #ifdef MU_SIGMA
-
-      fwrite(&matrix_mass[i],sizeof(type_int),1,pf_mu_sig);
-      aux  = cp.Mpart*(type_real)matrix_mass[i];
-      fwrite(&aux,sizeof(type_real),1,pf_mu_sig);
-
-      aux  = Seg[i].len-Seg[i].Rvir[0]-Seg[i].Rvir[1];
-      aux  = aux<= 0.0 ? 0.0f : (cp.Mpart*(type_real)matrix_mass[i])/aux;
-      fwrite(&aux,sizeof(type_real),1,pf_mu_sig);             // escribe la masa dentro de un cilindro de r_interior
-
-      matrix_media[i] *= (matrix_mass[i]>0) ? 1./(type_real)matrix_mass[i] : 0.0f;
-      matrix_sigma[i]  = matrix_mass[i]>10 ? sqrt((matrix_sigma[i] - \
-      (type_real)matrix_mass[i]*matrix_media[i]*matrix_media[i])*(1.f/(type_real)(matrix_mass[i]-1))) : 0.0f;
-
-      fwrite(&matrix_media[i],sizeof(type_real),1,pf_mu_sig);
-      fwrite(&matrix_sigma[i],sizeof(type_real),1,pf_mu_sig);
-
-    #endif
-
-    #ifdef CALCULA_MEDIA
-
-      fwrite(&Seg[i].flag,sizeof(type_int),1,pf_vel);    // escribe la bandera
-      fwrite(&Seg[i].len,sizeof(type_real),1,pf_vel);    // escribe la longitud del segmento
-
-      fwrite(Seg[i].Mass,sizeof(type_real),2,pf_vel);        // escribe la masa de los nodos
-      fwrite(Seg[i].Rvir,sizeof(type_real),2,pf_vel);        // escribe el radio de los nodos
-      fwrite(Seg[i].Vnodos,sizeof(type_real),6,pf_vel);  // escribe la vel de los dos nodos
-
-      fwrite(Seg[i].Vmedia,sizeof(type_real),3,pf_vel);  // escribe la velocidad media del tubo
-
-      for(k=0;k<3;k++)
-      {
-        Seg[i].Vmedia[k] = (Seg[i].Mass[0]*Seg[i].Vnodos[k]+    \
-                            Seg[i].Mass[1]*Seg[i].Vnodos[k+3])/ \
-                           (Seg[i].Mass[0]+Seg[i].Mass[1]);
-      }
-   
-      fwrite(Seg[i].Vmedia,sizeof(type_real),3,pf_vel);  // escribe la velocidad media del cm
-
-    #endif
-
     ////////////////////////////////////////////////////////////////
 
     fwrite(&i,sizeof(type_int),1,pf);                   // Num Filamento
@@ -1024,12 +715,6 @@ extern void propiedades(type_int NNN, type_real *fof)
 
     fwrite(&Seg[i].Mass[0],sizeof(type_real),1,pf);             // escribe la masa del primer nodo
     fwrite(&Seg[i].Mass[1],sizeof(type_real),1,pf);             // escribe la masa del ultimo nodo   
-
-    aux  = (type_real)matrix_mass[i]*(cp.lbox*cp.lbox*cp.lbox);
-    aux /= (type_real)cp.npart;
-    aux /= (Seg[i].len*0.5*M_PI*r_interior*r_interior);
-    aux -= 1.0f;
-    fwrite(&aux,sizeof(type_real),1,pf);             // escribe la masa dentro de un cilindro de r_interior
 
     #ifdef BIN_LOG
       logspace(rcil2,RAUX,R_INIT,ncil+1);
@@ -1063,27 +748,10 @@ extern void propiedades(type_int NNN, type_real *fof)
       aux  = (type_real)matrix_npart[i][k]*volinv[k/j];
       aux  -= 1.0f;
 
-      matrix_mean_par[i][k] *= (matrix_npart[i][k]>0) ? 1./(type_real)matrix_npart[i][k] : 0.0f;
-      matrix_mean_per[i][k] *= (matrix_npart[i][k]>0) ? 1./(type_real)matrix_npart[i][k] : 0.0f;
-
-      matrix_quad_par[i][k] = matrix_npart[i][k]>10 ? sqrt((matrix_quad_par[i][k] - \
-      (type_real)matrix_npart[i][k]*matrix_mean_par[i][k]*matrix_mean_par[i][k])*(1.f/(type_real)(matrix_npart[i][k]-1))) : 0.0f;
-
-      matrix_quad_per[i][k] = matrix_npart[i][k]>10 ? sqrt((matrix_quad_per[i][k] - \
-      (type_real)matrix_npart[i][k]*matrix_mean_per[i][k]*matrix_mean_per[i][k])*(1.f/(type_real)(matrix_npart[i][k]-1))) : 0.0f;
-
       fwrite(&matrix_npart[i][k],sizeof(type_int),1,pf);
       fwrite(&aux,sizeof(type_real),1,pf);
-      fwrite(&matrix_mean_par[i][k],sizeof(type_real),1,pf);
-      fwrite(&matrix_quad_par[i][k],sizeof(type_real),1,pf);
-      fwrite(&matrix_mean_per[i][k],sizeof(type_real),1,pf);
-      fwrite(&matrix_quad_per[i][k],sizeof(type_real),1,pf);
     }
 
-    free(matrix_mean_par[i]);
-    free(matrix_quad_par[i]);
-    free(matrix_mean_per[i]);
-    free(matrix_quad_per[i]);
     free(matrix_npart[i]);
 
     #ifdef LOCK
@@ -1092,23 +760,8 @@ extern void propiedades(type_int NNN, type_real *fof)
   }
 
   fclose(pf);
-  #ifdef MU_SIGMA
-  fclose(pf_mu_sig);
-  #endif
-  #ifdef CALCULA_MEDIA
-  fclose(pf_vel);
-  #endif
 
-  free(matrix_mean_per);
-  free(matrix_quad_per);
-  free(matrix_mean_par);
-  free(matrix_quad_par);
   free(matrix_npart);
-  free(matrix_mass);
-  #ifdef MU_SIGMA
-    free(matrix_media);
-    free(matrix_sigma);
-  #endif
   #ifdef LOCK
     free(lock);
   #endif

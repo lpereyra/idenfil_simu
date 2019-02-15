@@ -31,6 +31,10 @@
   #endif
 #endif
 
+#ifdef RANDOM
+  #define NRANDOM 10
+#endif
+
 #define N_part_types 6    /* Number of particle types */
 
 /* Precision del codigo (reales) */
@@ -50,17 +54,21 @@ typedef unsigned int type_int;
 size_t size_real;
 size_t size_int;
 
-/* Posiciones, velocidades y energias de las partículas */
-struct particle_data 
-{
-  type_real      Pos[3];
-  #ifdef STORE_VELOCITIES
-  type_real      Vel[3];
-  #endif
-  #ifdef STORE_IDS
-  type_int       id;
-  #endif
-} *P;
+#ifndef RANDOM
+
+  /* Posiciones, velocidades y energias de las partículas */
+  struct particle_data 
+  {
+    type_real      Pos[3];
+    #ifdef STORE_VELOCITIES
+    type_real      Vel[3];
+    #endif
+    #ifdef STORE_IDS
+    type_int       id;
+    #endif
+  } *P;
+
+#endif
 
 struct segmentstd
 {

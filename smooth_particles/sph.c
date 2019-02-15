@@ -222,6 +222,13 @@ static void search_cent(const type_int idpar, const type_int tid, const type_rea
       r2 = mm = 0.0;
       for(ix=0;ix<3;ix++)
       {
+
+        Posprima[ix] = Pos_cent[ix] - Seg[unique_fil[ibox]].Pos_list[3*(id_cent_seg-1)+ix];
+        #ifdef PERIODIC
+        if(Posprima[ix] >  0.5*cp.lbox) Posprima[ix] -= cp.lbox;
+        if(Posprima[ix] < -0.5*cp.lbox) Posprima[ix] += cp.lbox;
+        #endif
+
         vdir[ix] = Seg[unique_fil[ibox]].Pos_list[3*id_cent_seg+ix] - Seg[unique_fil[ibox]].Pos_list[3*(id_cent_seg-1)+ix];
         #ifdef PERIODIC
         if(vdir[ix] >  0.5*cp.lbox) vdir[ix] -= cp.lbox;
