@@ -14,7 +14,7 @@ EXTRAS += -DBIN_LOG
 #EXTRAS += -DNEW
 #EXTRAS += -DORIGINAL
 #EXTRAS += -DCUT_ELONGACION
-EXTRAS += -DTYPE_FLAG=1
+EXTRAS += -DTYPE_FLAG=2
 #EXTRAS += -DRANDOM
 
 #CC
@@ -28,7 +28,7 @@ LDFLAGS := -lm
 
 MAKEFILE := Makefile
 
-OBJS := leesnap.o variables.o grid.o list.o calcula.o
+OBJS := leesnap.o variables.o grid.o calcula.o
 
 HEADERS := $(patsubst %.o,$.h,$(OBJS))
 

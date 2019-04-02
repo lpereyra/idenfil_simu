@@ -11,6 +11,8 @@
 #include "iden.h"
 #include "bitmask.h"
 
+#define DIV_CEIL(x,y) (x+y-1)/y
+
 #ifdef LOCK
   static omp_lock_t *lock;
 #endif
@@ -432,8 +434,8 @@ extern void identification(void)
   {
     tid = omp_get_thread_num(); 
 
-    for(i = tid*floor((float)cp.npart/NTHREADS);
-    i<(tid==NTHREADS-1 ? cp.npart : (tid+1)*floor((float)cp.npart/NTHREADS));
+    for(i = tid*DIV_CEIL(cp.npart,NTHREADS);
+    i<(tid==NTHREADS-1 ? cp.npart : (tid+1)*DIV_CEIL(cp.npart,NTHREADS));
     i++)
     {
      

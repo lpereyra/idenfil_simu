@@ -25,6 +25,10 @@
   #endif
 #endif
 
+#ifndef RVIR_FACTOR
+  #define RVIR_FACTOR 2.0
+#endif
+
 #ifndef R_SPH
   #define R_SPH 2000.0
 #endif

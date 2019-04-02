@@ -225,6 +225,9 @@ extern void init_variables(int argc, char **argv)
   #endif
   sprintf(message,"  RAUX   = %f\n",RAUX);BLUE(message);
   sprintf(message,"  R_INIT = %f\n",R_INIT);BLUE(message);
+  #ifdef RANDOM
+    sprintf(message,"  NRAND = %d\n",NRANDOM);BLUE(message);
+  #endif
 
   GREEN("END\n");
 }

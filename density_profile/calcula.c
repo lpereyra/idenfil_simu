@@ -10,8 +10,6 @@
 #include "colores.h"
 #include "leesnap.h"
 #include "grid.h"
-#include "list.h"
-#include "timer.h"
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -19,6 +17,7 @@
 #define IX(i,j,n) n*j+i
 
 //////////////////////////////
+static type_real *rcil2; 
 static type_int  **matrix_npart;
 //////////////////////////////
 #ifdef LOCK
@@ -59,10 +58,6 @@ static void set_name(char * name, const type_int NNN, const char * prefix)
   #endif
 
   sprintf(name,"%s_%s",name,prefix);
-
-  #ifdef CALCULA_VCM
-    sprintf(name,"%s_vcm",name);
-  #endif
 
   #ifdef EXTEND
     sprintf(name,"%s_extend",name);
@@ -137,17 +132,18 @@ static void set_name(char * name, const type_int NNN, const char * prefix)
 
 #endif
 
-static void calc_fil_dis(const type_real * restrict Pos_idpar, const type_int idfil, const type_real * restrict rcil2)
+static void calc_fil_dis(const type_real * restrict Pos_idpar, const type_int idfil)
 {
   int j, k, idim, ix, iy, iseg;
-  type_real racum_min,rx_min,ry_min;
+  type_real racum_min_in_domain,rx_min_in_domain,ry_min_in_domain;
   type_real r,rsep,rlen,racum,dot,dis;
   type_real Pos_cent[3], vdir[3], delta[3];
 
   iseg = -1;
   dis = racum = 0.0f;
-  ry_min = cp.lbox*cp.lbox;
-  racum_min = rx_min = -cp.lbox;
+  // IN DOMAIN
+  ry_min_in_domain = cp.lbox*cp.lbox;
+  racum_min_in_domain = rx_min_in_domain = -cp.lbox;
   #ifdef EXTEND
   rlen = Seg[idfil].len_extend;
   #else
@@ -200,12 +196,12 @@ static void calc_fil_dis(const type_real * restrict Pos_idpar, const type_int id
   // SI ENTRA EN MI CILINDRO
   if(dot>=0.0f && dot<=rsep) 
   {
-    dis = fabs(r - dot*dot);
-    if(dis<ry_min && dis<rcil2[0])
+    dis = r - dot*dot;
+    if(dis> 0.0 && dis<ry_min_in_domain && dis<rcil2[0])
     {
-      ry_min = dis;
-      rx_min = dot; 
-      racum_min = racum; 
+      ry_min_in_domain = dis;
+      rx_min_in_domain = dot; 
+      racum_min_in_domain = racum; 
       iseg = 0;
     }
   }
@@ -258,15 +254,43 @@ static void calc_fil_dis(const type_real * restrict Pos_idpar, const type_int id
     // SI ENTRA EN MI CILINDRO
     if(dot>=0.0f && dot<=rsep) 
     {
-      dis = fabs(r - dot*dot);
-      if(dis<ry_min && dis<rcil2[0])
+      dis = r - dot*dot;
+      if(dis>0.0 && dis<ry_min_in_domain && dis<rcil2[0])
       {
-        ry_min = dis;
-        rx_min = dot; 
-        racum_min = racum; 
+        ry_min_in_domain = dis;
+        rx_min_in_domain = dot; 
+        racum_min_in_domain = racum; 
         iseg = k;
       }
     }
+
+    // SI ENTRA EN MI CILINDRO
+    //if(dot>= -rsep && dot<=2.*rsep) 
+    //{
+
+    //  if(dot>=0.0f && dot<=rsep) 
+    //  {
+    //    dis = fabs(r - dot*dot);
+    //    if(dis<ry_min && dis<rcil2[0])
+    //    {
+    //      ry_min = dis;
+    //      rx_min_in_domain = dot; 
+    //      racum_min = racum; 
+    //      iseg = k;
+    //    }
+
+    //  }else{
+
+    //    dis = fabs(r - dot*dot);
+    //    if(dis<ry_min_out_domain && dis<rcil2[0])
+    //    {
+    //      ry_min_out_domain = dis;
+    //      rx_min_out_domain = dot; 
+    //      racum_min_out_domain = racum; 
+    //      iseg = k;
+    //    }
+    //  }
+    //}
 
     racum += rsep;
   }
@@ -317,12 +341,12 @@ static void calc_fil_dis(const type_real * restrict Pos_idpar, const type_int id
   // SI ENTRA EN MI CILINDRO
   if(dot>=0.0f && dot<=rsep) 
   {
-    dis = fabs(r - dot*dot);
-    if(dis<ry_min && dis<rcil2[0])
+    dis = r - dot*dot;
+    if(dis>0.0 && dis<ry_min_in_domain && dis<rcil2[0])
     {
-      ry_min = dis;
-      rx_min = dot;
-      racum_min = racum; 
+      ry_min_in_domain = dis;
+      rx_min_in_domain = dot;
+      racum_min_in_domain = racum; 
       iseg = Seg[idfil].size;
     }
   }
@@ -373,14 +397,14 @@ static void calc_fil_dis(const type_real * restrict Pos_idpar, const type_int id
   }
 
   r = rlen/(type_real)j;
-  rsep  = racum_min + rx_min;
+  rsep  = racum_min_in_domain + rx_min_in_domain;
   ix = (int)(rsep/r); // bin round
   if(ix>=j)
     return;
 
   iy = 0;
   for(k=1;k<ncil;k++)
-    iy = ry_min<rcil2[k] ? k : iy;
+    iy = ry_min_in_domain<rcil2[k] ? k : iy;
 
   k = j;
   j = IX(ix,iy,j);
@@ -397,15 +421,28 @@ static void calc_fil_dis(const type_real * restrict Pos_idpar, const type_int id
   return;
 }
 
-static void calc_search_fil(const type_real * restrict Pos_cent,  const type_real r_2, struct list ** lista)
+static int compare_ids(const void *a, const void *b)
+{
+
+  if((type_int *) a < (type_int *) b)
+    return -1;
+
+  if((type_int *) a > (type_int *) b)
+    return +1;
+
+  return 0;
+}
+
+static void calc_search_fil(const type_real * restrict Pos_cent,  const type_real r_2)
 {	
-	type_int  i;
+	type_int  i, nfil;
+  type_int  *unique_fil;
   long ixc, iyc, izc;
   long ixci, iyci, izci;
   long ixcf, iycf, izcf;
   long ix, iy, iz;
   long ixx, iyy, izz;
-  long ibox;
+  long ibox, ibox_grid[27];        
   type_real fac,dis;
   type_real Posprima[3];
 
@@ -429,6 +466,7 @@ static void calc_search_fil(const type_real * restrict Pos_cent,  const type_rea
   if( izcf >= grid.ngrid ) izcf = grid.ngrid - 1;
   #endif
 
+  ibox = nfil = 0;
   for(ixx = ixci; ixx <= ixcf; ixx++)
   {
     ix = ixx;
@@ -452,54 +490,97 @@ static void calc_search_fil(const type_real * restrict Pos_cent,  const type_rea
         if(iz < 0) iz = iz + (long)grid.ngrid;
         #endif
 
-        ibox = (ix * (long)grid.ngrid + iy) * (long)grid.ngrid + iz ;
+        ibox_grid[ibox] = (ix * (long)grid.ngrid + iy) * (long)grid.ngrid + iz;
 
-        i = grid.llirst[ibox];
+        i = grid.llirst[ibox_grid[ibox]];
 
         while(i != grid.nobj)
         {
-          Posprima[0] = Gr[i].Pos[0] - Pos_cent[0];
-          Posprima[1] = Gr[i].Pos[1] - Pos_cent[1];
-          Posprima[2] = Gr[i].Pos[2] - Pos_cent[2];
-
-          #ifdef PERIODIC
-          if(Posprima[0] >  0.5f*cp.lbox) Posprima[0] = Posprima[0] - cp.lbox;
-          if(Posprima[1] >  0.5f*cp.lbox) Posprima[1] = Posprima[1] - cp.lbox;
-          if(Posprima[2] >  0.5f*cp.lbox) Posprima[2] = Posprima[2] - cp.lbox;
-          if(Posprima[0] < -0.5f*cp.lbox) Posprima[0] = Posprima[0] + cp.lbox;
-          if(Posprima[1] < -0.5f*cp.lbox) Posprima[1] = Posprima[1] + cp.lbox;
-          if(Posprima[2] < -0.5f*cp.lbox) Posprima[2] = Posprima[2] + cp.lbox;
-          #endif
-
-          dis = Posprima[0]*Posprima[0]+Posprima[1]*Posprima[1]+Posprima[2]*Posprima[2];
-
-          if(dis<r_2)
-          {
-            struct data_list dat;
-            dat.id = Gr[i].save;
-            dat.r  = dis;  // el cuadrado
-            push_list(lista, dat);
-          }// cierra el if
-
+          nfil++;
           i = grid.ll[i];
-
         } //fin lazo particulas del grid
-      } //fin izz
-    } //fin iyy
+
+        ibox++;
+      }
+    }
+  }
+
+  if(nfil == 0)
+    return;
+
+  unique_fil = (type_int *) malloc(nfil*sizeof(type_int));
+
+  nfil = 0;
+  for(ibox=0; ibox<27; ibox++)
+  {
+    i = grid.llirst[ibox_grid[ibox]];
+
+    while(i != grid.nobj)
+    {
+      Posprima[0] = Gr[i].Pos[0] - Pos_cent[0];
+      Posprima[1] = Gr[i].Pos[1] - Pos_cent[1];
+      Posprima[2] = Gr[i].Pos[2] - Pos_cent[2];
+
+      #ifdef PERIODIC
+      if(Posprima[0] >  0.5f*cp.lbox) Posprima[0] = Posprima[0] - cp.lbox;
+      if(Posprima[1] >  0.5f*cp.lbox) Posprima[1] = Posprima[1] - cp.lbox;
+      if(Posprima[2] >  0.5f*cp.lbox) Posprima[2] = Posprima[2] - cp.lbox;
+      if(Posprima[0] < -0.5f*cp.lbox) Posprima[0] = Posprima[0] + cp.lbox;
+      if(Posprima[1] < -0.5f*cp.lbox) Posprima[1] = Posprima[1] + cp.lbox;
+      if(Posprima[2] < -0.5f*cp.lbox) Posprima[2] = Posprima[2] + cp.lbox;
+      #endif
+
+      dis = Posprima[0]*Posprima[0]+Posprima[1]*Posprima[1]+Posprima[2]*Posprima[2];
+
+      if(dis<r_2)
+      {
+        unique_fil[nfil++] = Gr[i].save;
+      }// cierra el if
+
+      i = grid.ll[i];
+
+    } //fin lazo particulas del grid
   } //fin ixx
+
+  if(nfil == 0)
+  {
+    free(unique_fil);
+    return;
+  }
+
+  if(nfil>1)
+  {
+    unique_fil = (type_int *) realloc(unique_fil,nfil*sizeof(type_int));
+    qsort(unique_fil,nfil,sizeof(type_int),compare_ids);
+
+    ix = 0;   
+    for(iy=0; iy<nfil-1; iy++) 
+      if(unique_fil[iy] != unique_fil[iy+1]) 
+        unique_fil[ix++] = unique_fil[iy]; 
+  
+    unique_fil[ix++] = unique_fil[nfil-1];   
+    nfil = ix; 
+  }
+
+  for(ix=0;ix<nfil;ix++)
+  {
+    calc_fil_dis(Pos_cent,unique_fil[ix]);
+  }
+
+  free(unique_fil);
 
   return;
 }
 
-static void calcular_pert(const type_real * restrict Pos_idpar, const type_real rbus)
+extern void propiedades(type_int NNN, type_real *fof)
 {
-  struct list *root;
-  struct list *aux_lista_fil = NULL;
-  type_real *rcil2;
-
-  calc_search_fil(Pos_idpar,rbus*rbus,&aux_lista_fil);             
-
-  remove_duplicates(aux_lista_fil);
+  long i,j,k;
+  const type_real r_aux = sqrt(2.0f)*RAUX; // RADIO DE BUSQUEDA EN Kpc
+  const type_real r_aux_2 = r_aux*r_aux; // RADIO DE BUSQUEDA**2
+  type_real *volinv;
+  type_real aux,r,rlong;
+  char filename[200];
+  FILE *pf;
 
   rcil2  = (type_real *) malloc((ncil+1)*sizeof(type_real));
 
@@ -508,28 +589,6 @@ static void calcular_pert(const type_real * restrict Pos_idpar, const type_real 
   #else
     linspace(rcil2,RAUX,R_INIT,ncil+1);
   #endif
-
-  while(aux_lista_fil != NULL)
-  {
-    root = aux_lista_fil;
-    calc_fil_dis(Pos_idpar,root->data.id,rcil2);
-    aux_lista_fil = aux_lista_fil->next;
-    free(root);
-  }
-
-  free(rcil2);
-
-  return;
-}
-
-extern void propiedades(type_int NNN, type_real *fof)
-{
-  long i,j,k;
-  const type_real r_aux = 2.0f*RAUX; // RADIO DE BUSQUEDA EN Kpc
-  type_real *rcil2, *volinv;
-  type_real aux,r,rlong;
-  char filename[200];
-  FILE *pf;
 
   #ifdef EXTEND
 
@@ -604,24 +663,6 @@ extern void propiedades(type_int NNN, type_real *fof)
   GREEN("******************************\n");
   fflush(stdout);
 
-  #ifdef CALCULA_VCM
-
-    GREEN("CALCULA VCM\n");
-
-    for(i=0;i<cp.nseg;i++)  
-    {
-      for(k=0;k<3;k++)
-      {
-        Seg[i].Vmedia[k] = (Seg[i].Mass[0]*Seg[i].Vnodos[k]+    \
-                            Seg[i].Mass[1]*Seg[i].Vnodos[k+3])/ \
-                           (Seg[i].Mass[0]+Seg[i].Mass[1]);
-      }
-    }
-
-    GREEN("Termina el calculo\n");
-
-  #endif
-
   #ifdef RANDOM
 
     long *nrand;
@@ -664,7 +705,7 @@ extern void propiedades(type_int NNN, type_real *fof)
         Pos_rand[0] = drand48()*cp.lbox;
         Pos_rand[1] = drand48()*cp.lbox;
         Pos_rand[2] = drand48()*cp.lbox;
-        calcular_pert(Pos_rand,r_aux);
+        calc_search_fil(Pos_rand,r_aux_2);
         k++;
       }
 
@@ -681,7 +722,7 @@ extern void propiedades(type_int NNN, type_real *fof)
     for(i=0;i<cp.npart;i++)
     {
       if(i%1000000==0) fprintf(stdout,"%ld %.4f\n",i,(float)i/(float)cp.npart);
-      calcular_pert(P[i].Pos,r_aux);
+      calc_search_fil(P[i].Pos,r_aux_2);
     }
 
   #endif
@@ -692,7 +733,6 @@ extern void propiedades(type_int NNN, type_real *fof)
 
   grid_free();
 
-  rcil2  = (type_real *) malloc((ncil+1)*sizeof(type_real));
   volinv = (type_real *) malloc(ncil*sizeof(type_real));
 
   set_name(filename,NNN,"matrix");
@@ -715,12 +755,6 @@ extern void propiedades(type_int NNN, type_real *fof)
 
     fwrite(&Seg[i].Mass[0],sizeof(type_real),1,pf);             // escribe la masa del primer nodo
     fwrite(&Seg[i].Mass[1],sizeof(type_real),1,pf);             // escribe la masa del ultimo nodo   
-
-    #ifdef BIN_LOG
-      logspace(rcil2,RAUX,R_INIT,ncil+1);
-    #else
-      linspace(rcil2,RAUX,R_INIT,ncil+1);
-    #endif
 
     #ifdef EXTEND
     rlong = Seg[i].len_extend;

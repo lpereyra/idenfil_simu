@@ -32,7 +32,7 @@
 #endif
 
 #ifdef RANDOM
-  #define NRANDOM 10
+  #define NRANDOM 1
 #endif
 
 #define N_part_types 6    /* Number of particle types */

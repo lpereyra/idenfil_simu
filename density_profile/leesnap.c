@@ -55,6 +55,7 @@ static void leeheader(char *filename){
   printf("  Softening = %g\n",cp.soft);
   printf("*********************************** \n");
   printf("*********************************** \n");
+
 }
 
 #ifndef RANDOM
@@ -154,7 +155,7 @@ extern void read_gadget(void)
     sprintf(filename,"%s%s",snap.root,snap.name);
 
   leeheader(filename);
-     
+
   #ifndef RANDOM
 
     size_t total_memory;
