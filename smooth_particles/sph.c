@@ -22,19 +22,25 @@ static type_int *k_fil;
 
 static int compare_ids(const void *a, const void *b)
 {
+  //if((type_int *) a < (type_int *) b)
+  //  return -1;
 
-  if((type_int *) a < (type_int *) b)
-    return -1;
+  //if((type_int *) a > (type_int *) b)
+  //  return +1;
 
-  if((type_int *) a > (type_int *) b)
-    return +1;
+  //return 0;
 
-  return 0;
+  int *c, *d;
+  
+  c = (int *) a;
+  d = (int *) b;
+  
+  return (*c - *d);
 }
 
 static void search_cent(const type_int idpar, const type_int tid, const type_real h2) 
 {	
-	type_int  nfil,id_cent_seg;
+  type_int  nfil,id_cent_seg;
   type_int  *unique_fil;
   long ixc, iyc, izc;
   long ixci, iyci, izci;
@@ -126,9 +132,9 @@ static void search_cent(const type_int idpar, const type_int tid, const type_rea
         unique_fil[ix++] = unique_fil[iy]; 
   
     unique_fil[ix++] = unique_fil[nfil-1];   
-    nfil = ix; 
+    nfil = ix;
   }
-  
+
   for(ibox=0;ibox<nfil;ibox++)
   {
     Posprima[0] = Seg[unique_fil[ibox]].Pos_list[0] - Pos_cent[0];
@@ -167,14 +173,34 @@ static void search_cent(const type_int idpar, const type_int tid, const type_rea
     if(r2 < Seg[unique_fil[ibox]].Rvir[1]) // uso el cuadrado   
       continue;
 
-    mm = h2;
+    mm = cp.lbox*cp.lbox;
     id_cent_seg = grid.nobj;
 
-    for(ix=1;ix<(Seg[unique_fil[ibox]].size-1);ix++)
+    for(ix=1;ix<Seg[unique_fil[ibox]].size;ix++)
     {
-      Posprima[0] = Seg[unique_fil[ibox]].Pos_list[3*ix]   - Pos_cent[0];
-      Posprima[1] = Seg[unique_fil[ibox]].Pos_list[3*ix+1] - Pos_cent[1];
-      Posprima[2] = Seg[unique_fil[ibox]].Pos_list[3*ix+2] - Pos_cent[2];
+
+      r2 = 0.0f;
+      vdir[0] = Seg[unique_fil[ibox]].Pos_list[3*ix]     - Seg[unique_fil[ibox]].Pos_list[3*(ix-1)];
+      vdir[1] = Seg[unique_fil[ibox]].Pos_list[3*ix + 1] - Seg[unique_fil[ibox]].Pos_list[3*(ix-1) + 1];
+      vdir[2] = Seg[unique_fil[ibox]].Pos_list[3*ix + 2] - Seg[unique_fil[ibox]].Pos_list[3*(ix-1) + 2];
+      #ifdef PERIODIC
+      if(vdir[0]> 0.5*cp.lbox) vdir[0] -= cp.lbox;
+      if(vdir[0]<-0.5*cp.lbox) vdir[0] += cp.lbox;
+      if(vdir[1]> 0.5*cp.lbox) vdir[1] -= cp.lbox;
+      if(vdir[1]<-0.5*cp.lbox) vdir[1] += cp.lbox;
+      if(vdir[2]> 0.5*cp.lbox) vdir[2] -= cp.lbox;
+      if(vdir[2]<-0.5*cp.lbox) vdir[2] += cp.lbox;
+      #endif
+      r2 = vdir[0]*vdir[0] + vdir[1]*vdir[1] + vdir[2]*vdir[2]; // tmb para mirar si caigo adentro del cilindro
+      r2 = 1.0/sqrt(r2);
+
+      vdir[0] *= r2; // directo
+      vdir[1] *= r2; // directo
+      vdir[2] *= r2; // directo
+
+      Posprima[0] =  Pos_cent[0] - Seg[unique_fil[ibox]].Pos_list[3*(ix-1)]  ;
+      Posprima[1] =  Pos_cent[1] - Seg[unique_fil[ibox]].Pos_list[3*(ix-1)+1];
+      Posprima[2] =  Pos_cent[2] - Seg[unique_fil[ibox]].Pos_list[3*(ix-1)+2];
 
       #ifdef PERIODIC
       if(Posprima[0] >  0.5f*cp.lbox) Posprima[0] = Posprima[0] - cp.lbox;
@@ -185,86 +211,26 @@ static void search_cent(const type_int idpar, const type_int tid, const type_rea
       if(Posprima[2] < -0.5f*cp.lbox) Posprima[2] = Posprima[2] + cp.lbox;
       #endif
 
-      r2 = Posprima[0]*Posprima[0]+Posprima[1]*Posprima[1]+Posprima[2]*Posprima[2];
+      vprima[1] = Posprima[0]*Posprima[0]+Posprima[1]*Posprima[1]+Posprima[2]*Posprima[2]; //r2
 
-      if(r2<h2 && r2<mm)
+      if(vprima[1] <= h2 ) // entro en la esfera
       {
-        mm = r2;
-        id_cent_seg = ix;        
+        vprima[0] = Posprima[0]*vdir[0] + Posprima[1]*vdir[1] + Posprima[2] * vdir[2]; // dot
+
+        vprima[2] = fabs(vprima[1] - vprima[0]*vprima[0]);
+
+        if(vprima[2]<mm)
+        {
+          mm = vprima[2];
+          id_cent_seg = ix-1; // me quedo con el anterior
+        }
       }
     }
 
     if(id_cent_seg == grid.nobj)
       continue;
-    
-    // decide que vector usar
 
     mm = r2 = 0.0;
-    for(ix=0;ix<3;ix++)
-    {
-      Posprima[ix] = Pos_cent[ix] - Seg[unique_fil[ibox]].Pos_list[3*id_cent_seg+ix];
-      #ifdef PERIODIC
-      if(Posprima[ix] >  0.5*cp.lbox) Posprima[ix] -= cp.lbox;
-      if(Posprima[ix] < -0.5*cp.lbox) Posprima[ix] += cp.lbox;
-      #endif
-
-      vdir[ix] = Seg[unique_fil[ibox]].Pos_list[3*(id_cent_seg+1)+ix] - Seg[unique_fil[ibox]].Pos_list[3*id_cent_seg+ix];
-      #ifdef PERIODIC
-      if(vdir[ix] >  0.5*cp.lbox) vdir[ix] -= cp.lbox;
-      if(vdir[ix] < -0.5*cp.lbox) vdir[ix] += cp.lbox;
-      #endif
-
-      r2 += vdir[ix]*vdir[ix];
-      mm += Posprima[ix]*vdir[ix]; // uso el signo del producto punto para saber a que versor se lo tengo que asignar
-    }
-
-    if(mm<0.0)
-    {
-      id_cent_seg -= 1;
-
-      r2 = 0.0;
-      for(ix=0;ix<3;ix++)
-      {
-
-        Posprima[ix] = Pos_cent[ix] - Seg[unique_fil[ibox]].Pos_list[3*id_cent_seg+ix];
-        #ifdef PERIODIC
-        if(Posprima[ix] >  0.5*cp.lbox) Posprima[ix] -= cp.lbox;
-        if(Posprima[ix] < -0.5*cp.lbox) Posprima[ix] += cp.lbox;
-        #endif
-
-        vdir[ix] = Seg[unique_fil[ibox]].Pos_list[3*(id_cent_seg+1)+ix] - Seg[unique_fil[ibox]].Pos_list[3*id_cent_seg+ix];
-        #ifdef PERIODIC
-        if(vdir[ix] >  0.5*cp.lbox) vdir[ix] -= cp.lbox;
-        if(vdir[ix] < -0.5*cp.lbox) vdir[ix] += cp.lbox;
-        #endif
-        r2 += vdir[ix]*vdir[ix];
-      }
-    }
-
-    r2 = 1.0/sqrt(r2);
-
-    vdir[0] *= r2;
-    vdir[1] *= r2;
-    vdir[2] *= r2;
-
-    //realizo el producto punto
-    mm = Posprima[0]*vdir[0] + Posprima[1]*vdir[1] + Posprima[2]*vdir[2];
-
-    r2 = 0.0f;
-    for(ix=0;ix<3;ix++)
-    {
-      Posprima[ix] -= mm*vdir[ix];
-    
-      #ifdef PERIODIC
-      if(Posprima[ix]>  0.5f*cp.lbox) Posprima[ix] -= cp.lbox;
-      if(Posprima[ix]< -0.5f*cp.lbox) Posprima[ix] += cp.lbox;
-      #endif
-
-      r2 += Posprima[ix]*Posprima[ix];
-    }
-    r2 = sqrt(r2);
-
-    mm = 0.0f;
     for(ix=0;ix<3;ix++)
     {
       vprima[ix] = P[idpar].Vel[ix]; // asigna
@@ -273,13 +239,143 @@ static void search_cent(const type_int idpar, const type_int tid, const type_rea
         vprima[ix] -= Seg[unique_fil[ibox]].Vmedia[ix]; // asigna
       //#endif
 
-      Posprima[ix] *= (1.0f/r2);
-      mm += (vprima[ix]*Posprima[ix]);
+      vdir[ix] = Seg[unique_fil[ibox]].Pos_list[3*(id_cent_seg+1)+ix] - Seg[unique_fil[ibox]].Pos_list[3*id_cent_seg+ix];
+      #ifdef PERIODIC
+      if(vdir[ix] >  0.5*cp.lbox) vdir[ix] -= cp.lbox;
+      if(vdir[ix] < -0.5*cp.lbox) vdir[ix] += cp.lbox;
+      #endif
+
+      mm += (vprima[ix]*vprima[ix]);
+      r2 += (vdir[ix]*vdir[ix]);
     }
+    
+    r2 = 1.0/sqrt(r2);
+
+    vdir[0] *= r2;
+    vdir[1] *= r2;
+    vdir[2] *= r2;
+
+    r2 = (vprima[0]*vdir[0] + vprima[1]*vdir[1] + vprima[2]*vdir[2]);
+    mm -= (r2*r2);
+    mm = sqrt(fabs(mm));
 
     sum_mean_per[tid][unique_fil[ibox]] += mm;
     sum_quad_per[tid][unique_fil[ibox]] += (mm*mm);  
     sum_fil[tid][unique_fil[ibox]]++;
+
+    //mm = cp.lbox*cp.lbox;
+    //id_cent_seg = grid.nobj;
+
+    //for(ix=1;ix<(Seg[unique_fil[ibox]].size-1);ix++)
+    //{
+    //  Posprima[0] = Seg[unique_fil[ibox]].Pos_list[3*ix]   - Pos_cent[0];
+    //  Posprima[1] = Seg[unique_fil[ibox]].Pos_list[3*ix+1] - Pos_cent[1];
+    //  Posprima[2] = Seg[unique_fil[ibox]].Pos_list[3*ix+2] - Pos_cent[2];
+
+    //  #ifdef PERIODIC
+    //  if(Posprima[0] >  0.5f*cp.lbox) Posprima[0] = Posprima[0] - cp.lbox;
+    //  if(Posprima[1] >  0.5f*cp.lbox) Posprima[1] = Posprima[1] - cp.lbox;
+    //  if(Posprima[2] >  0.5f*cp.lbox) Posprima[2] = Posprima[2] - cp.lbox;
+    //  if(Posprima[0] < -0.5f*cp.lbox) Posprima[0] = Posprima[0] + cp.lbox;
+    //  if(Posprima[1] < -0.5f*cp.lbox) Posprima[1] = Posprima[1] + cp.lbox;
+    //  if(Posprima[2] < -0.5f*cp.lbox) Posprima[2] = Posprima[2] + cp.lbox;
+    //  #endif
+
+    //  r2 = Posprima[0]*Posprima[0]+Posprima[1]*Posprima[1]+Posprima[2]*Posprima[2];
+
+    //  if(r2<h2 && r2<mm)
+    //  {
+    //    mm = r2;
+    //    id_cent_seg = ix;        
+    //  }
+    //}
+
+    //if(id_cent_seg == grid.nobj)
+    //  continue;
+    //
+    //// decide que vector usar
+
+    //mm = r2 = 0.0;
+    //for(ix=0;ix<3;ix++)
+    //{
+    //  Posprima[ix] = Pos_cent[ix] - Seg[unique_fil[ibox]].Pos_list[3*id_cent_seg+ix];
+    //  #ifdef PERIODIC
+    //  if(Posprima[ix] >  0.5*cp.lbox) Posprima[ix] -= cp.lbox;
+    //  if(Posprima[ix] < -0.5*cp.lbox) Posprima[ix] += cp.lbox;
+    //  #endif
+
+    //  vdir[ix] = Seg[unique_fil[ibox]].Pos_list[3*(id_cent_seg+1)+ix] - Seg[unique_fil[ibox]].Pos_list[3*id_cent_seg+ix];
+    //  #ifdef PERIODIC
+    //  if(vdir[ix] >  0.5*cp.lbox) vdir[ix] -= cp.lbox;
+    //  if(vdir[ix] < -0.5*cp.lbox) vdir[ix] += cp.lbox;
+    //  #endif
+
+    //  r2 += vdir[ix]*vdir[ix];
+    //  mm += Posprima[ix]*vdir[ix]; // uso el signo del producto punto para saber a que versor se lo tengo que asignar
+    //}
+
+    //if(mm<0.0)
+    //{
+    //  id_cent_seg -= 1;
+
+    //  r2 = 0.0;
+    //  for(ix=0;ix<3;ix++)
+    //  {
+
+    //    Posprima[ix] = Pos_cent[ix] - Seg[unique_fil[ibox]].Pos_list[3*id_cent_seg+ix];
+    //    #ifdef PERIODIC
+    //    if(Posprima[ix] >  0.5*cp.lbox) Posprima[ix] -= cp.lbox;
+    //    if(Posprima[ix] < -0.5*cp.lbox) Posprima[ix] += cp.lbox;
+    //    #endif
+
+    //    vdir[ix] = Seg[unique_fil[ibox]].Pos_list[3*(id_cent_seg+1)+ix] - Seg[unique_fil[ibox]].Pos_list[3*id_cent_seg+ix];
+    //    #ifdef PERIODIC
+    //    if(vdir[ix] >  0.5*cp.lbox) vdir[ix] -= cp.lbox;
+    //    if(vdir[ix] < -0.5*cp.lbox) vdir[ix] += cp.lbox;
+    //    #endif
+    //    r2 += vdir[ix]*vdir[ix];
+    //  }
+    //}
+
+    //r2 = 1.0/sqrt(r2);
+
+    //vdir[0] *= r2;
+    //vdir[1] *= r2;
+    //vdir[2] *= r2;
+
+    ////realizo el producto punto
+    //mm = Posprima[0]*vdir[0] + Posprima[1]*vdir[1] + Posprima[2]*vdir[2];
+
+    //r2 = 0.0f;
+    //for(ix=0;ix<3;ix++)
+    //{
+    //  Posprima[ix] -= mm*vdir[ix];
+    //
+    //  #ifdef PERIODIC
+    //  if(Posprima[ix]>  0.5f*cp.lbox) Posprima[ix] -= cp.lbox;
+    //  if(Posprima[ix]< -0.5f*cp.lbox) Posprima[ix] += cp.lbox;
+    //  #endif
+
+    //  r2 += Posprima[ix]*Posprima[ix];
+    //}
+    //r2 = sqrt(r2);
+
+    //mm = 0.0f;
+    //for(ix=0;ix<3;ix++)
+    //{
+    //  vprima[ix] = P[idpar].Vel[ix]; // asigna
+
+    //  //#ifdef CALCULA_VCM
+    //    vprima[ix] -= Seg[unique_fil[ibox]].Vmedia[ix]; // asigna
+    //  //#endif
+
+    //  Posprima[ix] *= (1.0f/r2);
+    //  mm += (vprima[ix]*Posprima[ix]);
+    //}
+
+    //sum_mean_per[tid][unique_fil[ibox]] += mm;
+    //sum_quad_per[tid][unique_fil[ibox]] += (mm*mm);  
+    //sum_fil[tid][unique_fil[ibox]]++;
 
   } //fin ibox
 
@@ -441,12 +537,12 @@ static void search_cent(const type_real * __restrict__ Pos_cent, const type_int 
 extern void calculo_rho(void)
 {
   long i, k, size;
-  type_real aux_len, r[3];
+  type_real aux_real, r[3];
   int k_arvo;
 
-  aux_len  = cbrt(3.0/(4.0*M_PI*cp.Mpart*(type_real)cp.npart));
-  aux_len *= cp.lbox;
-  aux_len *= fof[1];
+  aux_real  = cbrt(3.0/(4.0*M_PI*cp.Mpart*(type_real)cp.npart));
+  aux_real *= cp.lbox;
+  aux_real *= fof[1];
   size = 0;
 
   #ifdef NTHREADS
@@ -468,8 +564,8 @@ extern void calculo_rho(void)
     double *esferas, vvv;
     esferas = (double *) malloc(4*(Seg[i].size+2)*sizeof(double));
 
-    Seg[i].Rvir[0] = RVIR_FACTOR*cbrt(Seg[i].Mass[0])*aux_len;
-    Seg[i].Rvir[1] = RVIR_FACTOR*cbrt(Seg[i].Mass[1])*aux_len;
+    Seg[i].Rvir[0] = RVIR_FACTOR*cbrt(Seg[i].Mass[0])*aux_real;
+    Seg[i].Rvir[1] = RVIR_FACTOR*cbrt(Seg[i].Mass[1])*aux_real;
     //#ifdef CALCULA_VCM
       for(k=0;k<3;k++)
       {
@@ -481,9 +577,9 @@ extern void calculo_rho(void)
 
     for(k=0;k<Seg[i].size;k++)
     {
-      r[0] = Seg[i].Pos_list[3*k]  - Seg[i].Pos_list[0];
-      r[1] = Seg[i].Pos_list[3*k+1]- Seg[i].Pos_list[1];
-      r[2] = Seg[i].Pos_list[3*k+2]- Seg[i].Pos_list[2];
+      r[0] = Seg[i].Pos_list[3*k]   - Seg[i].Pos_list[0];
+      r[1] = Seg[i].Pos_list[3*k+1] - Seg[i].Pos_list[1];
+      r[2] = Seg[i].Pos_list[3*k+2] - Seg[i].Pos_list[2];
 
       if(r[0]> 0.5*cp.lbox) Seg[i].Pos_list[3*k]   -= cp.lbox;
       if(r[1]> 0.5*cp.lbox) Seg[i].Pos_list[3*k+1] -= cp.lbox;
@@ -586,7 +682,7 @@ extern void calculo_rho(void)
   }
 
   #pragma omp parallel for num_threads(NTHREADS) default(none) \
-  private(i,k,aux_len,r) shared(cp,Seg,sum_fil,sum_mean_per,sum_quad_per,stdout)
+  private(i,k,aux_real,r) shared(cp,Seg,sum_fil,sum_mean_per,sum_quad_per,stdout)
   for(i=0;i<cp.nseg;i++)
   {
     Seg[i].Rvir[0] = sqrt(Seg[i].Rvir[0]);
@@ -606,11 +702,11 @@ extern void calculo_rho(void)
     Seg[i].sigma_per = sum_fil[0][i]>0 ? sqrt((sum_quad_per[0][i] - \
     sum_fil[0][i]*sum_mean_per[0][i]*sum_mean_per[0][i])*(1.f/(type_real)(sum_fil[0][i]-1))) : 0.0f;
 
-    aux_len = Seg[i].len - Seg[i].Rvir[0] - Seg[i].Rvir[1];
-    aux_len *= 1e-3;
+    aux_real = Seg[i].len - Seg[i].Rvir[0] - Seg[i].Rvir[1];
+    aux_real *= 1e-3;
 
-    Seg[i].mu  = aux_len<0.0 ? 0.0f : Seg[i].mass_part/aux_len;
-    Seg[i].rho = aux_len<0.0 ? 0.0f : Seg[i].mass_part/Seg[i].vol;
+    Seg[i].mu  = aux_real<0.0 ? 0.0f : Seg[i].mass_part/aux_real;
+    Seg[i].rho = aux_real<0.0 ? 0.0f : Seg[i].mass_part/Seg[i].vol;
 
     for(k=0;k<Seg[i].size;k++)
     {

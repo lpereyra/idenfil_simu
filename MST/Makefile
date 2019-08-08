@@ -6,11 +6,11 @@ EXTRAS += -DPOSFACTOR=1000.0   #Positions in simulation Mpc/h
 #EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 #EXTRAS += -DSTORE_VELOCITIES
 #EXTRAS += -DMCRITIC
-EXTRAS += -DWRITE_WEIGHT
+#EXTRAS += -DWRITE_WEIGHT
 
 #CC
 CC     := $(OMPP) g++ $(DOMPP)
-DC     := -DNTHREADS=24
+DC     := -DNTHREADS=32
 #DC     += -DLOCK
 CFLAGS := -Wall -O3 -fopenmp -g
 #GSLL   := -lgsl -lgslcblas

@@ -138,7 +138,8 @@ static void lee(const char *filename, type_int *ind){
   fclose(pf);
 }
 
-extern void read_gadget(void){
+extern void read_gadget(void)
+{
   char filename[200];
   type_int ifile, ind;
   size_t total_memory;

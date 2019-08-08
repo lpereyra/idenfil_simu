@@ -216,6 +216,13 @@ extern void read_segment(type_int NNN, type_real *fof)
   type_real  r[3];
   #endif
   FILE  *pf;
+  type_real vol;
+  type_real rho;
+  type_real mu;
+  type_real mass_part;
+  type_real sigma;
+  type_real r_pos;
+  int id_pos;
 
   #ifdef EXTEND
     set_name("segmentos_extend",filename,NNN,fof);
@@ -301,7 +308,13 @@ extern void read_segment(type_int NNN, type_real *fof)
     fread(&Seg[i].len,sizeof(type_real),1,pf);
     fread(&Seg[i].elong,sizeof(type_real),1,pf);
     fread(&Seg[i].rms,sizeof(type_real),1,pf);
-    
+    fread(&vol,sizeof(type_real),1,pf);
+    fread(&mu,sizeof(type_real),1,pf);
+    fread(&rho,sizeof(type_real),1,pf);
+    fread(&mass_part,sizeof(type_real),1,pf);
+    fread(&sigma,sizeof(type_real),1,pf);
+    fread(&r_pos,sizeof(type_real),1,pf);
+    fread(&id_pos,sizeof(int),1,pf);
     assert(k==Seg[i].size);
   }
 

@@ -8,7 +8,7 @@ EXTRAS += -DSTORE_IDS
 
 #CC
 CC     := $(OMPP) gcc $(DOMPP)
-DC     := -DNTHREADS=24
+DC     := -DNTHREADS=32
 DC     += -DLOCK
 CFLAGS := -Wall -O3 -march=native -ftree-vectorize -fopenmp -g
 LIBS   := -lm

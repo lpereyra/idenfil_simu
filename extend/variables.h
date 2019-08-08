@@ -62,6 +62,9 @@ struct segmentstd
   type_real rho;
   type_real mu;
   type_real mass_part;
+  type_real sigma;
+  type_real r_pos;
+  int id_pos;
   #endif
 } *Seg;
 

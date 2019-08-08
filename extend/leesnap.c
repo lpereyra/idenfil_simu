@@ -95,7 +95,9 @@ static void set_name(const char * prefix, char * name, const type_int NNN, const
     sprintf(name,"../");
   #else
     #ifdef NEW_VERSION
-      sprintf(name,"../smooth_particles/");
+      //sprintf(name,"../smooth_particles/");
+      //sprintf(name,"/mnt/mirta3/lpereyra/1600_400/10_to_14_Mass/smooth_particles_sigma_2_rvir/");
+      sprintf(name,"/mnt/mirta3/lpereyra/1600_400/10_to_14_Mass/smooth_particles_sigma_silla_2_rvir/");
     #else
       sprintf(name,"../smooth/");
     #endif
@@ -193,6 +195,9 @@ extern void read_segment(type_int NNN, type_real *fof)
     fread(&Seg[i].vol,sizeof(type_real),1,pf);
     fread(&Seg[i].rho,sizeof(type_real),1,pf);
     fread(&Seg[i].mu,sizeof(type_real),1,pf);
+    fread(&Seg[i].sigma,sizeof(type_real),1,pf);
+    fread(&Seg[i].r_pos,sizeof(type_real),1,pf);
+    fread(&Seg[i].id_pos,sizeof(int),1,pf);
     #endif
    
     assert(k==Seg[i].size);
@@ -355,6 +360,9 @@ extern void read_segment(type_int NNN, type_real *fof)
     fwrite(&Seg[i].vol,sizeof(type_real),1,pfprop);
     fwrite(&Seg[i].rho,sizeof(type_real),1,pfprop);
     fwrite(&Seg[i].mu,sizeof(type_real),1,pfprop);
+    fwrite(&Seg[i].sigma,sizeof(type_real),1,pfprop);
+    fwrite(&Seg[i].r_pos,sizeof(type_real),1,pfprop);
+    fwrite(&Seg[i].id_pos,sizeof(int),1,pfprop);
     #endif
 
     free(Pos_aux);

@@ -359,11 +359,11 @@ static void calc_fil_dis(const type_int idpar, const type_int idfil, const type_
       #endif
       r += vdir[idim]*vdir[idim];
     }
-    r = sqrt(r);
+    r = 1./sqrt(r);
 
     for(idim=0;idim<3;idim++)
     {
-      vdir[idim] *= (1/r); // directo
+      vdir[idim] *= r; // directo
       Pos_cent[idim] = Gr[Seg[idfil].list[iseg-1]].Pos[idim];
 
       #ifdef PERIODIC
