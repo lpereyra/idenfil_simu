@@ -58,8 +58,6 @@ static void leeheader(char *filename){
 
 }
 
-#ifndef RANDOM
-
 static void lee(char *filename, struct particle_data *Q, type_int *ind){
   FILE *pf;
   type_int d1, d2;
@@ -88,11 +86,12 @@ static void lee(char *filename, struct particle_data *Q, type_int *ind){
   fread(&d1, sizeof(d1), 1, pf);
   for(k = 0, pc = 0; k < N_part_types; k++){
     for(n = 0; n < header.npart[k]; n++){
-      fread(&r[0], size_real, 3, pf);
+      fread(&r[0], sizeof(type_real), 3, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
           Q[*ind+pc].Pos[0] = r[0]*POSFACTOR;
           Q[*ind+pc].Pos[1] = r[1]*POSFACTOR;
           Q[*ind+pc].Pos[2] = r[2]*POSFACTOR;
+    
           pc++;
       }
     }
@@ -104,7 +103,7 @@ static void lee(char *filename, struct particle_data *Q, type_int *ind){
 #ifdef STORE_VELOCITIES
   for(k = 0, pc = 0; k < N_part_types; k++){
     for(n = 0; n < header.npart[k]; n++){
-      fread(&v[0], size_real, 3, pf);
+      fread(&v[0], sizeof(type_real), 3, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
         Q[*ind+pc].Vel[0] = v[0]*VELFACTOR;
         Q[*ind+pc].Vel[1] = v[1]*VELFACTOR;
@@ -141,8 +140,6 @@ static void lee(char *filename, struct particle_data *Q, type_int *ind){
   fclose(pf);
 }
 
-#endif
-
 extern void read_gadget(void)
 {
   char filename[200];
@@ -156,28 +153,24 @@ extern void read_gadget(void)
 
   leeheader(filename);
 
-  #ifndef RANDOM
+  size_t total_memory;
 
-    size_t total_memory;
+  /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
+  total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
+  printf("Allocating %.5zu Gb for %u particles\n",total_memory,cp.npart);
+  P = (struct particle_data *) malloc(cp.npart*sizeof(struct particle_data));
+  assert(P != NULL);
+  
+  /***** LEE POS Y VEL DE LAS PARTICULAS ***********************/
+  for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++)
+  {
+    if(snap.nfiles>1)
+      sprintf(filename,"%s%s.%d",snap.root,snap.name,ifile);
+    else
+      sprintf(filename,"%s%s",snap.root,snap.name);
 
-    /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
-    total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
-    printf("Allocating %.5zu Gb for %u particles\n",total_memory,cp.npart);
-    P = (struct particle_data *) malloc(cp.npart*sizeof(struct particle_data));
-    assert(P != NULL);
-
-    /***** LEE POS Y VEL DE LAS PARTICULAS ***********************/
-    for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++)
-    {
-      if(snap.nfiles>1)
-        sprintf(filename,"%s%s.%d",snap.root,snap.name,ifile);
-      else
-        sprintf(filename,"%s%s",snap.root,snap.name);
-
-      lee(filename,P,&ind);
-    }
-
-  #endif
+    lee(filename,P,&ind);
+  }
 
   fprintf(stdout,"End reading snapshot file(s)...\n"); fflush(stdout);
 
@@ -186,181 +179,209 @@ extern void read_gadget(void)
 
 static void set_name(const char * prefix, char * name, const type_int NNN, const type_real * fof)
 {
-  #ifdef EXTEND
-
-      sprintf(name,"../extend/");
-
-  #else
-
-    #ifdef ORIGINAL
-      sprintf(name,"../");
-    #else
-      sprintf(name,"../smooth/");
-    #endif
-
-  #endif
-
+  sprintf(name,"../smooth_particles_sigma_2_rvir/");
   sprintf(name,"%s%.2d_%.4d",name,snap.num,NNN);
-
-  #ifndef ORIGINAL
-    sprintf(name,"%s_smooth",name);
-  #endif
-
-  #ifdef NEW
-    sprintf(name,"%s_new_%s",name,prefix);
-  #else
-    sprintf(name,"%s_%s",name,prefix);
-  #endif
-
-  #ifdef MCRITIC
-	  sprintf(name,"%s_cut_%.2f",name,m_critica);
-  #endif
-
+  sprintf(name,"%s_smooth",name);
+  sprintf(name,"%s_%s",name,prefix);
   sprintf(name,"%s_%.2f_%.2f.bin",name,fof[0],fof[1]);  
 
 	return;
 }
 
-extern void read_segment(type_int NNN, type_real *fof)
+void read_segment(type_int NNN, type_real *fof)
 {
   char  filename[200];
-  type_int   i,k;
-  #ifndef ORIGINAL
-  type_int   j;
-  type_real  r[3];
-  #endif
+  type_int i,j,k,l,c;
+  type_int *aux_flag;
+  type_int  flag;
+  type_real Mass[2];
+  type_real Vnodos[6];
+  type_real razon;
+  type_real len;
+  type_real elong;
+  type_real rms;
+  type_real aux_len;
+  type_real mass_part;
+  type_real vol;
+  type_real rho;
+  type_real mu;
+  type_real sigma;
+#ifdef CUT_ELONGACION
+  type_real r[3];
+#endif
   FILE  *pf;
 
-  #ifdef EXTEND
-    set_name("segmentos_extend",filename,NNN,fof);
-  #else
-    set_name("segmentos",filename,NNN,fof);
-  #endif
+  aux_len  = cbrt(3.0/(4.0*M_PI*cp.Mpart*(type_real)cp.npart));
+  aux_len *= cp.lbox;
+  aux_len *= fof[1];
+
+  set_name("propiedades",filename,NNN,fof);
   fprintf(stdout,"%s\n",filename);
-
-  #ifndef ORIGINAL
-  pf = fopen(filename,"rb"); 
-
-  fread(&j,sizeof(type_int),1,pf);
-
-  cp.ngrup=0;
-  for(i=0;i<j;i++)
-  {
-    fread(&k,sizeof(type_int),1,pf);
-    cp.ngrup+=k;
-    fseek(pf,3*k*sizeof(type_real),SEEK_CUR);
-  }  
-  fclose(pf);
-
-  Gr = (struct grup_data *) malloc(cp.ngrup*sizeof(struct grup_data));
-
-  j=0;
-  #endif
 
   pf = fopen(filename,"rb"); 
 
   fread(&cp.nseg,sizeof(type_int),1,pf);
 
-  fprintf(stdout,"Segmentos %d\n",cp.nseg);
-  fflush(stdout);
-
   Seg = (struct segmentstd *) malloc(cp.nseg*sizeof(struct segmentstd));
-
-  for(i=0;i<cp.nseg;i++)
-  {
-    fread(&Seg[i].size,sizeof(type_int),1,pf);
-    Seg[i].list = (type_int *) malloc(Seg[i].size*sizeof(type_int));
-
-    for(k=0;k<Seg[i].size;k++)
-    {
-      #ifdef ORIGINAL
-        fread(&Seg[i].list[k],sizeof(type_int),1,pf);
-      #else
-        fread(&r[0], sizeof(type_real), 3, pf);
-        Gr[j].save = i;
-        Gr[j].id   = k;
-        memcpy(Gr[j].Pos,r,3*sizeof(type_real));
-        Seg[i].list[k] = j;
-        j++;
-      #endif
-    }
-  }
-
-  fclose(pf);
-
-  #ifdef EXTEND
-    set_name("propiedades_extend",filename,NNN,fof);
-  #else
-    set_name("propiedades",filename,NNN,fof);
-  #endif
-
-  fprintf(stdout,"%s\n",filename);
-
-  pf = fopen(filename,"rb"); 
-
-  fread(&k,sizeof(type_int),1,pf);
-
-  assert(k==cp.nseg);
+  aux_flag = (type_int *) malloc(cp.nseg*sizeof(type_int));
 
   fprintf(stdout,"Propiedades Segmentos %d\n",cp.nseg);
   fflush(stdout);
 
+  cp.ngrup = j =0;
   for(i=0;i<cp.nseg;i++)
-  {  
-    fread(&Seg[i].flag,sizeof(type_int),1,pf);
-    fread(&k,sizeof(type_int),1,pf);
-    fread(&Seg[i].Mass[0],sizeof(type_real),2,pf);
-    fread(&Seg[i].Vnodos[0],sizeof(type_real),6,pf);
-    fread(&Seg[i].razon,sizeof(type_real),1,pf);
-    fread(&Seg[i].len,sizeof(type_real),1,pf);
-    fread(&Seg[i].elong,sizeof(type_real),1,pf);
-    fread(&Seg[i].rms,sizeof(type_real),1,pf);
-    
-    assert(k==Seg[i].size);
+  { 
+    aux_flag[i] = 0;
+
+    Seg[j].id = i;
+
+    fread(&flag,sizeof(type_int),1,pf);
+    fread(&Seg[j].size,sizeof(type_int),1,pf);
+    fread(Mass,sizeof(type_real),2,pf);
+    fread(Vnodos,sizeof(type_real),6,pf);
+    fread(&razon,sizeof(type_real),1,pf);
+    fread(&len,sizeof(type_real),1,pf);
+    fread(&elong,sizeof(type_real),1,pf);
+    fread(&rms,sizeof(type_real),1,pf);
+    fread(&mass_part,sizeof(type_real),1,pf);
+    fread(&vol,sizeof(type_real),1,pf);
+    fread(&rho,sizeof(type_real),1,pf);
+    fread(&mu,sizeof(type_real),1,pf);
+    fread(&sigma,sizeof(type_real),1,pf);
+
+    Seg[j].Rvir_2[0] = RVIR_FACTOR*cbrt(Mass[0])*aux_len;
+    Seg[j].Rvir_2[1] = RVIR_FACTOR*cbrt(Mass[1])*aux_len;
+
+    Seg[j].Rvir_2[0] *= Seg[j].Rvir_2[0];
+    Seg[j].Rvir_2[1] *= Seg[j].Rvir_2[1];
+
+    if(flag != TYPE_FLAG) continue;
+    #ifdef CUT_IN_LEN
+    if(len<LEN_MIN || len>LEN_MAX) continue;
+    #endif
+
+    cp.ngrup += Seg[j].size;
+    aux_flag[i] = 1;
+    j++;
   }
 
   fclose(pf);
 
-  return;
-}
+  Gr = (struct grup_data *) malloc(cp.ngrup*sizeof(struct grup_data));
+  Seg = (struct segmentstd *) realloc(Seg,j*sizeof(struct segmentstd));
+  cp.nseg = j;
 
-#ifdef ORIGINAL
+  set_name("segmentos",filename,NNN,fof);
 
-  extern void read_grup_fof(type_real *fof)
+  fprintf(stdout,"%s\n",filename);
+
+  pf = fopen(filename,"rb"); 
+  fread(&k,sizeof(type_int),1,pf);
+
+  j = c = 0;
+  for(i=0;i<k;i++)
   {
-    char  filename[200];
-    type_int   i;
-    FILE  *pfin;
-   
-    #ifdef MCRITIC
-      sprintf(filename,"../%.2d_%.2f_centros_cut_%.2f.bin",snap.num,fof[1],m_critica);
-    #else
-      sprintf(filename,"../../%.2d_%.2f_centros.bin",snap.num,fof[1]);
-    #endif
-  
-    pfin = fopen(filename,"rb"); 
-  
-    fread(&cp.ngrup,sizeof(type_int),1,pfin);
-  
-    fprintf(stdout,"Grupos %d\n",cp.ngrup);
-    fflush(stdout);
-  
-    Gr = (struct grup_data *) malloc(cp.ngrup*sizeof(struct grup_data));
-  
-    for(i=0;i<cp.ngrup;i++)
+    if(aux_flag[i]==0)
     {
-      fread(&Gr[i].save,sizeof(type_int),1,pfin);
-      fread(&Gr[i].id,sizeof(type_int),1,pfin);
-      fread(&Gr[i].Pos[0],sizeof(float),1,pfin);
-      fread(&Gr[i].Pos[1],sizeof(float),1,pfin);
-      fread(&Gr[i].Pos[2],sizeof(float),1,pfin);
-      fread(&Gr[i].NumPart,sizeof(type_int),1,pfin);
+
+      fread(&l,sizeof(type_int),1,pf);
+      fseek(pf,3*l*sizeof(type_real),SEEK_CUR);
+
+    }else{
+
+      fread(&l,sizeof(type_int),1,pf);
+
+      assert(l==Seg[j].size);
+
+      Seg[j].start = c;
+
+      for(l=0;l<Seg[j].size;l++)
+      {
+        fread(Gr[c].Pos, sizeof(type_real), 3, pf);
+        c++;
+      }
+
+      j++;
     }
-  
-    fclose(pfin);
-  
-    return;
-  
   }
 
+  fclose(pf);
+  free(aux_flag);
+
+  assert(j==cp.nseg);
+
+  GREEN("********** IMPORTANTE ***********\n");
+  #ifdef CUT_IN_LEN
+    sprintf(message,"cut FLAG == %d && \
+                     LEN MIN %f Mpc & LEN MAX %f REALOCATEA %d fil\n", \
+                     TYPE_FLAG,LEN_MIN/1000.0f,LEN_MAX/1000.0f,cp.nseg);
+  #else
+    sprintf(message,"cut FLAG == %d REALOCATEA %d fil\n",TYPE_FLAG,cp.nseg);
+  #endif
+  GREEN(message);
+
+#ifdef CUT_ELONGACION
+
+  l = c = 0;
+
+  for(i=0;i<cp.nseg;i++)
+  {
+    len = 0.0f;
+    for(k=Seg[i].start+1;k<Seg[i].start+Seg[i].size;k++)
+    {
+      for(j=0;j<3;j++)
+      {
+        r[j] = Gr[k].Pos[j]-Gr[k-1].Pos[j];    
+        #ifdef PERIODIC
+        if(r[j]> 0.5*cp.lbox) r[j] -= cp.lbox;
+        if(r[j]<-0.5*cp.lbox) r[j] += cp.lbox;
+        #endif
+      }
+      len += sqrt(r[0]*r[0]+r[1]*r[1]+r[2]*r[2]);
+    }
+
+    for(j=0;j<3;j++)
+    {
+      r[j] = Gr[Seg[i].start+Seg[i].size-1].Pos[j]-Gr[Seg[i].start].Pos[j];    
+      #ifdef PERIODIC
+      if(r[j]> 0.5*cp.lbox) r[j] -= cp.lbox;
+      if(r[j]<-0.5*cp.lbox) r[j] += cp.lbox;
+      #endif
+    }
+    
+    elong = sqrt(r[0]*r[0]+r[1]*r[1]+r[2]*r[2]);
+
+    elong /= len;
+    
+    if(elong<CUT_ELONG)
+      continue;
+
+    for(k=Seg[i].start;k<Seg[i].start+Seg[i].size;k++)
+    {
+      Gr[c].Pos[0] = Gr[k].Pos[0];
+      Gr[c].Pos[1] = Gr[k].Pos[1];
+      Gr[c].Pos[2] = Gr[k].Pos[2];
+      c++;
+    }
+
+    Seg[i].start = c-Seg[i].size;
+    Seg[l] = Seg[i];
+
+    l++;
+
+  }
+
+  cp.nseg = l;
+  cp.ngrup = c;
+
+  Seg = (struct segmentstd *) realloc(Seg,cp.nseg*sizeof(struct segmentstd));
+  Gr  = (struct grup_data  *) realloc(Gr,cp.ngrup*sizeof(struct grup_data));
+
+  fprintf(stdout,"Segmentos CUT ELONGATION %d\n",cp.nseg);
+  fprintf(stdout,"Nodos     CUT ELONGATION %d\n",cp.ngrup);
+
 #endif
+
+  return;
+
+}

@@ -18,9 +18,9 @@ struct cosmoparam
 		double  aexp     		;  /*                                       */
 		double  Hubble_a    ;  /*                                       */
 		double  soft        ;  /* Softening [kpc / h]                   */
-		type_int  npart     ;  /* Número de partículas                  */
-    type_int  nseg      ;  /* Numero de segmentos                   */
-    type_int  ngrup     ;  /* Numero de grupos                      */
+		type_int npart      ;  /* Número de partículas                  */
+    type_int nseg       ;  /* Numero de segmentos                   */
+    type_int ngrup      ;  /* Numero de grupos                      */
 } cp;
 
 #endif

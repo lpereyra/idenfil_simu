@@ -17,12 +17,6 @@ extern void init_variables(int argc, char **argv)
 
   RED("Initializing variables...\n");
 
-  size_real = sizeof(type_real);
-  fprintf(stdout,"type_real: %zu\n",size_real);
-
-  size_int  = sizeof(type_int);
-  fprintf(stdout,"type_int:  %zu\n",size_int);
-
   sprintf(filename,"%s",argv[1]);
   if(!(pfin=fopen(filename,"r")))
   {
@@ -47,6 +41,22 @@ extern void init_variables(int argc, char **argv)
     sprintf(message,"can't read file `%s`\nneed snapname\n",filename);RED(message);
     exit(0);
   }
+
+#ifdef MARIO
+
+  if(!fscanf(pfin,"%s  \n",snap.root_fil))
+  {
+    sprintf(message,"can't read file `%s`\nneed snapshots directory\n",filename);RED(message);
+    exit(0);
+  }
+
+  if(!fscanf(pfin,"%s  \n",snap.name_fil))
+  {
+    sprintf(message,"can't read file `%s`\nneed snapname\n",filename);RED(message);
+    exit(0);
+  }
+  
+#endif
 
   if(!fscanf(pfin,"%lf \n",&cp.soft))
   {
@@ -75,67 +85,22 @@ extern void init_variables(int argc, char **argv)
     }
   }
 
-  if(!fscanf(pfin,"%u  \n",&nbins))
+  if(!fscanf(pfin,"%u  \n",&ncil))
   {
-    sprintf(message,"can't read file `%s`\nneed Nbins\n",filename);RED(message);
+    sprintf(message,"can't read file `%s`\nneed Ncil\n",filename);RED(message);
     exit(0);
   }
 
-  #ifdef FIXED_SEPARATION
+  if(!fscanf(pfin,"%f\n",&RAUX))
+  {
+    sprintf(message,"can't read file `%s`\nneed RAUX\n",filename);RED(message);
+    exit(0);
+  }
 
-    #ifdef PRECDOUBLE
-    if(!fscanf(pfin,"%lf  \n",&RLEN))
-    #else
-    if(!fscanf(pfin,"%f   \n",&RLEN))
-    #endif
-    {
-      sprintf(message,"can't read file `%s`\n LEN MAX\n",filename);RED(message);
-      exit(0);
-    }
- 
-    #ifdef PRECDOUBLE
-    if(!fscanf(pfin,"%lf  \n",&RSEP))
-    #else
-    if(!fscanf(pfin,"%f   \n",&RSEP))
-    #endif
-    {
-      sprintf(message,"can't read file `%s`\n SEP MAX\n",filename);RED(message);
-      exit(0);
-    }
-
+  #ifdef BIN_LOG
+    RINIT=RAUX/100.0f; // Fraccion Kpc
   #else
-
-    if(!fscanf(pfin,"%u  \n",&ncil))
-    {
-      sprintf(message,"can't read file `%s`\nneed Ncil\n",filename);RED(message);
-      exit(0);
-    }
-
-    if(!fscanf(pfin,"%f\n",&RAUX))
-    {
-      sprintf(message,"can't read file `%s`\nneed RAUX\n",filename);RED(message);
-      exit(0);
-    }
-
-    #ifdef BIN_LOG
-      R_INIT=RAUX/20.0f; // Fraccion Kpc
-    #else
-      R_INIT=0.00f;      // Init
-    #endif
-
-  #endif
-
-  #ifdef MCRITIC
-
-  #ifdef PRECDOUBLE
-    if(!fscanf(pfin,"%lf \n",&m_critica))
-  #else
-    if(!fscanf(pfin,"%f \n",&m_critica))
-  #endif
-    {
-      sprintf(message,"can't read file `%s`\nneed M_CRITIC\n",filename);RED(message);
-      exit(0);
-    }
+    RINIT=0.00f;      // Init
   #endif
 
   fclose(pfin);
@@ -152,7 +117,6 @@ extern void init_variables(int argc, char **argv)
   }
   ///////////////////////////////////////////////////////////////////////
 
-
   BLUE("********** Information ***********\n");
   sprintf(message,"Snapshots directory:     %s\n",snap.root);BLUE(message);
   sprintf(message,"Snapname:                %s\n",snap.name);BLUE(message);
@@ -165,22 +129,9 @@ extern void init_variables(int argc, char **argv)
      sprintf(message,"%d overdensity          %.2f\n",i,fof[i]);BLUE(message);
      fof[i] = cbrt(1./(1.+fof[i]));
   }
-  sprintf(message,"Num bins:               %d\n",nbins);BLUE(message);
-  #ifdef FIXED_SEPARATION
-    RED("FIXED SEPARATION\n");
-    sprintf(message,"RLEN                %f Mpc\n",RLEN);BLUE(message);
-    sprintf(message,"RSEP                %f Mpc\n",RSEP);BLUE(message);
-    assert(RLEN>1.e-06);
-    assert(RSEP>1.e-06);
-  #else
-    sprintf(message,"Num cylindres:          %d\n",ncil);BLUE(message);
-    assert(ncil!=0);
-  #endif
+  sprintf(message,"Num cylindres:          %d\n",ncil);BLUE(message);
+  assert(ncil!=0);
   sprintf(message,"R SEARCH MAX = %f\n",RAUX);GREEN(message);
-
-  #ifdef MCRITIC
-  sprintf(message,"M_CRIT [10^10 Msol / h]  %f\n",m_critica);RED(message);
-  #endif
 
   BLUE("********** Makefile Options ***********\n");
   #ifdef PERIODIC
@@ -191,9 +142,6 @@ extern void init_variables(int argc, char **argv)
   #endif
   #ifdef LONGIDS
   BLUE("  LONGIDS\n");
-  #endif
-  #ifdef LOCK
-  BLUE("  LOCK\n");
   #endif
   #ifdef TYPE_FLAG
   sprintf(message,"  TYPE_FLAG = %d\n",TYPE_FLAG);BLUE(message);
@@ -207,24 +155,13 @@ extern void init_variables(int argc, char **argv)
   #ifdef STORE_VELOCITIES
   BLUE("  STORE_VELOCITIES\n");
   #endif
-  #ifdef CUT_IN_LEN
-  sprintf(message,"  CUT LEN MIN = %f\n",LEN_MIN);BLUE(message);
-  sprintf(message,"  CUT LEN MAX = %f\n",LEN_MAX);BLUE(message);
-  #endif
-  #if defined(CALCULA_MEDIA) && !defined(CALCULA_VCM)
-  BLUE("  CALCULA MEDIA\n");
-  #elif !defined(CALCULA_MEDIA) && defined(CALCULA_VCM)
-  BLUE("  CALCULA VCM\n");
-  #else
-  BLUE("  CALCULO CRUDO\n");
-  #endif
   #ifdef BIN_LOG
   BLUE("  BINS LOG\n");
   #else
   BLUE("  BINS LIN\n");
   #endif
   sprintf(message,"  RAUX   = %f\n",RAUX);BLUE(message);
-  sprintf(message,"  R_INIT = %f\n",R_INIT);BLUE(message);
+  sprintf(message,"  RINIT  = %f\n",RINIT);BLUE(message);
   #ifdef RANDOM
     sprintf(message,"  NRAND = %d\n",NRANDOM);BLUE(message);
   #endif

@@ -3,16 +3,14 @@
 
 extern void read_gadget(void);
 extern void read_segment(type_int NNN, type_real *fof);
-#ifdef ORIGINAL
-  extern void read_grup_fof(type_real *fof);
-#endif
-
-type_real pmin[3], pmax[3];
 
 /*Input and output files*/
 struct SnapST{
   type_int nfiles;
   char root[200], name[200];
+#ifdef MARIO
+  char root_fil[200], name_fil[200];
+#endif
   type_int num;
 } snap;
 

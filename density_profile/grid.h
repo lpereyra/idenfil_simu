@@ -2,7 +2,7 @@
 #define GRID_H
 
 #ifndef NGRIDMAX
-#define NGRIDMAX 512
+  #define NGRIDMAX 512
 #endif
 
 struct gridst

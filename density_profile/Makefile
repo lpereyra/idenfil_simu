@@ -1,27 +1,24 @@
 ### snapshot options #######
 EXTRAS += -DPERIODIC    #periodic boundary condition
 #EXTRAS += -DPRECDOUBLE   #Pos and vel in double precision
-#EXTRAS += -DLONGIDS            #IDs are long integer
+#EXTRAS += -DLONGIDS           #IDs are long integer
 EXTRAS += -DPOSFACTOR=1000.0   #Positions in Kpc
 EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 #EXTRAS += -DSTORE_VELOCITIES
-#EXTRAS += -DCUT_IN_LEN
-EXTRAS += -DHUECOS
-#EXTRAS += -DEXTEND
-#EXTRAS += -DVEL_RELATIVA
 EXTRAS += -DBIN_LOG
-#EXTRAS += -DMCRITIC
-#EXTRAS += -DNEW
-#EXTRAS += -DORIGINAL
 #EXTRAS += -DCUT_ELONGACION
-EXTRAS += -DTYPE_FLAG=2
-#EXTRAS += -DRANDOM
+EXTRAS += -DCUT_IN_LEN
+EXTRAS += -DTYPE_FLAG=1
+#EXTRAS += -DTYPE_FLAG=2
+EXTRAS += -DSIN_REPETICION
+#EXTRAS += -DSERIAL
+#EXTRAS += -DESFERA
+#EXTRAS += -DMARIO
+#EXTRAS += -DSINTETICOS_RECTOS
 
 #CC
-CC      := $(OMPP) gcc $(DOMPP)
-DC      := -DNTHREADS=56
-DC      += -DLOCK
-CFLAGS  := -Wall -O3 -fopenmp -march=native -g
+CC      := $(OMPP) mpicc $(DOMPP)
+CFLAGS  := -Wall -O2 -fopenmp -march=native -ftree-vectorize -msse2 -ftree-vectorizer-verbose=5 -g
 LDFLAGS := -lm
 
 .PHONY : cleanall clean todo 
@@ -37,13 +34,13 @@ EXEC := density_profile.x
 todo: $(EXEC)
 
 %.o: %.c %.h $(MAKEFILE)
-	$(CC) $(EXTRAS) $(CFLAGS) $(DC) -c $<
+	$(CC) $(EXTRAS) $(CFLAGS) -c $<
 
 %.f.o: $(OBJS_FITPACK) 
 	$(FC) $(FFLAGS) -c $<
 
 density_profile.x: density_profile.c $(OBJS) $(OBJS_FITPACK)
-	$(CC) $(CFLAGS) $(EXTRAS) $(DC) $^  -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(EXTRAS) $^  -o $@ $(LDFLAGS)
 
 clean:
 	rm -rf $(OBJS)

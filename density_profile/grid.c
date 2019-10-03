@@ -41,9 +41,9 @@ extern void grid_build(void)
 
   for(i = 0; i < grid.nobj; i++)
   {
-    ix = (unsigned long)((double)Gr[i].Pos[0]*fac);
-    iy = (unsigned long)((double)Gr[i].Pos[1]*fac);
-    iz = (unsigned long)((double)Gr[i].Pos[2]*fac);
+    ix = (unsigned long)((double)P[i].Pos[0]*fac);
+    iy = (unsigned long)((double)P[i].Pos[1]*fac);
+    iz = (unsigned long)((double)P[i].Pos[2]*fac);
 
     ibox = igrid(ix,iy,iz,grid.ngrid);
    
