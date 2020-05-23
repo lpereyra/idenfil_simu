@@ -139,9 +139,12 @@ extern void suaviza()
         for(idim=0;idim<3;idim++)
         {
           Seg[i].Pos_list[IX(k,idim)] = \
-          0.25f*Pos_aux[IX((k-1),idim)]  + \
-          0.50f*Pos_aux[IX(k,idim)]      + \
-          0.25f*Pos_aux[IX((k+1),idim)];
+          Pos_aux[IX(k,idim)];
+
+          //Seg[i].Pos_list[IX(k,idim)] = \
+          //0.25f*Pos_aux[IX((k-1),idim)]  + \
+          //0.50f*Pos_aux[IX(k,idim)]      + \
+          //0.25f*Pos_aux[IX((k+1),idim)];
   
           #ifdef PERIODIC
           if(Seg[i].Pos_list[IX(k,idim)] >= cp.lbox) 
