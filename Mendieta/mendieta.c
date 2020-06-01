@@ -5,16 +5,16 @@
 #include <omp.h>
 
 #include "variables.h"
-#include "cosmoparam.h"
+#include "allocate.h"
 #include "leesnap.h"
 #include "timer.h"
-#include "iden.h"
 #include "colores.h"
+#include "iden.h"
 #include "grid.h"
+#include "io.h"
 
 int main(int argc, char **argv)
 {
-  type_int  i;
   double start,end;
 
   TIMER(start);
@@ -25,72 +25,19 @@ int main(int argc, char **argv)
   /*Lee archivos de la simulacion*/
   read_gadget();
 
-  for(i=0;i<3;i++)
-  {
-    pmin[i] = 1.E26; 
-    pmax[i] = -1.E26;
-  }
-
-  for(i=0;i<cp.npart;i++)
-  {
-    if(P.x[i] > pmax[0]) pmax[0] = P.x[i];
-    if(P.x[i] < pmin[0]) pmin[0] = P.x[i];
-    if(P.y[i] > pmax[1]) pmax[1] = P.y[i];
-    if(P.y[i] < pmin[1]) pmin[1] = P.y[i];
-    if(P.z[i] > pmax[2]) pmax[2] = P.z[i];
-    if(P.z[i] < pmin[2]) pmin[2] = P.z[i];
-  }
-
-  printf("xmin %.1f xmax %.1f\n",pmin[0],pmax[0]);
-  printf("ymin %.1f ymax %.1f\n",pmin[1],pmax[1]);
-  printf("zmin %.1f zmax %.1f\n",pmin[2],pmax[2]);
- 
-  for(i=0;i<cp.npart;i++)
-  {
-    P.x[i] -= pmin[0];
-    P.y[i] -= pmin[1];
-    P.z[i] -= pmin[2];
-  }
-
-  cp.lbox = 0.0f;
-  for(i = 0; i < 3; i++)
-    if(cp.lbox < (pmax[i] - pmin[i])) cp.lbox = (pmax[i] - pmin[i]);
-
-  cp.lbox *= 1.001;
-
-  //cp.lbox *= POSFACTOR;
-  //cp.lbox *= 1.001;
-  
-  fprintf(stdout,"cp.lbox %f....\n",cp.lbox);
+#ifdef CHANGE_POSITION
+  RED("Inicio Change Positions\n");
+  change_positions(cp.npart);
   GREEN("Fin Change Positions\n");
   fflush(stdout);
- 
-  iden.r0 = (double *) malloc(nfrac*sizeof(double));
-
-  for(i=0;i<nfrac;i++)
-  {
-    fprintf(stdout, "\nBegins Identification : Step %d of %d \n",i+1,nfrac);
-    
-    iden.r0[i]  = fof[i];
-    iden.r0[i] *= cbrt(cp.Mpart*1.0E10/cp.omegam/RHOCRIT)*1000.0f; //EN KPC
-
-    if(iden.r0[i] <= cp.soft)
-    {
-      fprintf(stdout,"cambia Linking length = %f \n",iden.r0[i]);
-      iden.r0[i] = cp.soft;
-    }
-
-    fprintf(stdout,"Linking length %d = %f \n",i,iden.r0[i]);
-  }
-
-  iden.nobj = cp.npart;
+#endif
 
   fprintf(stdout, "\nBegins Identification\n");
   identification();
+  fprintf(stdout, "\nEnds Identification\n");
 
   /************* TERMINO LA IDENTIFICACION ***************/
-
-  free_particles();
+  free_particles(&P);
   grid_free();
 
   TIMER(end);

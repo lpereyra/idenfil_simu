@@ -4,32 +4,28 @@
 #include <math.h>
 #include <omp.h>
 
-#include "cosmoparam.h"
+#include "propiedades.h"
 #include "variables.h"
 #include "leesnap.h"
 #include "grid.h"
 #include "iden.h"
-#include "bitmask.h"
+#include "io.h"
 
 #define DIV_CEIL(x,y) (x+y-1)/y
 
+static struct iden_st iden;
+static struct temporary Temp;
+static type_int **gr;
 #ifdef LOCK
   static omp_lock_t *lock;
 #endif
-
-static inline long igrid(const long ix, const long iy, const long iz, const long ngrid) 
-{
-  return (ix*ngrid+ iy)*ngrid + iz;
-}
-
+ 
 static inline type_int Raiz(type_int i, type_int * restrict ar)
 {
-
- if(i != ar[i])
-   ar[i] = Raiz(ar[i],ar);
-
- return ar[i];
-
+  if(i != ar[i])
+    ar[i] = Raiz(ar[i],ar);
+ 
+  return ar[i];
 }
 
 static inline void Unir(type_int u, type_int v, type_int * restrict ar)
@@ -102,16 +98,26 @@ static inline void Unir(type_int u, type_int v, type_int * restrict ar)
 
 }
 
-static void busv(const type_int ic, type_int * restrict test)
+static void busv(const type_int ic)
 {
 
   long ixc, iyc, izc, ibox;
   type_int i, niv;
   type_real xx, yy, zz;
 
+#ifdef COLUMN
+
   ixc  = (long)(P.x[ic]*(type_real)grid.ngrid*(1.f/cp.lbox));
   iyc  = (long)(P.y[ic]*(type_real)grid.ngrid*(1.f/cp.lbox));
   izc  = (long)(P.z[ic]*(type_real)grid.ngrid*(1.f/cp.lbox));
+
+#else
+
+  ixc  = (long)(P[ic].pos[0]*(type_real)grid.ngrid*(1.f/cp.lbox));
+  iyc  = (long)(P[ic].pos[1]*(type_real)grid.ngrid*(1.f/cp.lbox));
+  izc  = (long)(P[ic].pos[2]*(type_real)grid.ngrid*(1.f/cp.lbox));
+
+#endif
 
   #ifndef PERIODIC
     for(long ixx = ((ixc-1<0) ? 0 : ixc-1); ixx <= ((ixc+1 >= grid.ngrid) ? grid.ngrid-1 : ixc+1); ixx++)
@@ -141,15 +147,20 @@ static void busv(const type_int ic, type_int * restrict test)
           ibox = igrid(ixx,iyy,izz,(long)grid.ngrid);
         #endif
 
-        for(i=grid.icell[ibox];i<grid.icell[ibox]+grid.size[ibox];i++)
+        for(i=grid.icell[ibox];i<grid.icell[ibox+1];i++)
         {
-          if(!TestBit(test,i))
+          if(ic<i)
           {
 
+#ifdef COLUMN           
             xx = P.x[i] - P.x[ic];
             yy = P.y[i] - P.y[ic];
             zz = P.z[i] - P.z[ic];
-
+#else
+            xx = P[i].pos[0] - P[ic].pos[0];
+            yy = P[i].pos[1] - P[ic].pos[1];
+            zz = P[i].pos[2] - P[ic].pos[2];
+#endif
             #ifdef PERIODIC
             xx = ( xx >  cp.lbox*0.5f ) ? xx - cp.lbox : xx ;
             yy = ( yy >  cp.lbox*0.5f ) ? yy - cp.lbox : yy ;
@@ -166,8 +177,7 @@ static void busv(const type_int ic, type_int * restrict test)
                 Unir(ic,i,gr[niv]);
               }
             }
-            
-          } // cierra el if
+      	  } // cierra el if
 
         } /*fin lazo particulas del grid*/
       } /*fin izz*/
@@ -176,24 +186,24 @@ static void busv(const type_int ic, type_int * restrict test)
 
 }
 
-static void linkedlist(type_int *test, type_int * restrict ar)
+static void linkedlist(type_int * restrict ar)
 {
   type_int i, g;
 
-  Temp.ll = (type_int *) calloc(cp.npart,sizeof(type_int));
+  Temp.ll = (type_int *) calloc(iden.nobj,sizeof(type_int));
 
   iden.ngrupos = 0;
-  for(i=0;i<cp.npart;i++)
+  for(i=0;i<iden.nobj;i++)
   {
     ar[i] = Raiz(i,ar);
-    if(TestBit(test,ar[i]))
+    assert(ar[i]>=i);
+    if(Temp.ll[ar[i]] < NPARTMIN)
     {
       Temp.ll[ar[i]]++;
-      if(Temp.ll[ar[i]]>=NPARTMIN)
+      if(Temp.ll[ar[i]]==NPARTMIN)
       { 
         iden.ngrupos++;
-        Temp.ll[ar[i]] = iden.ngrupos;
-        ClearBit(test,ar[i]);
+        Temp.ll[ar[i]] = NPARTMIN + iden.ngrupos;
       }
     }
   }
@@ -205,25 +215,20 @@ static void linkedlist(type_int *test, type_int * restrict ar)
 
   for(i=0;i<iden.ngrupos;i++)
   {
-    Temp.head[i]   = cp.npart;
+    Temp.head[i]   = iden.nobj;
     Temp.npgrup[i] =  0;
   }
 
-  for(i=0;i<cp.npart;i++)
-  { 
-    if(TestBit(test,ar[i]))
-    {
-      ar[i] = 0;
-    }else{
-      ar[i] = Temp.ll[ar[i]];
-    }
-  }
-
-  for(i=0;i<cp.npart;i++)
+  for(i=0;i<iden.nobj;i++)
   {
-    g = ar[i];
+    if(Temp.ll[ar[i]]>NPARTMIN)
+    {
+      ar[i] = Temp.ll[ar[i]] - NPARTMIN;
+    }else{
+      ar[i] = 0;
+    }
 
-    SetBit(test,i);
+    g = ar[i];
 
     #ifdef DEBUG
     assert((g >= 0) && (g < iden.ngrupos));
@@ -233,17 +238,19 @@ static void linkedlist(type_int *test, type_int * restrict ar)
     Temp.npgrup[g]++;
   }
 
+  return;
 }
 
 static void Write_Groups(type_int niv)
 {
-  type_int i,j,k,id,npar,gn,save_sub;
-  type_real dx,dy,dz,xc,yc,zc;
+  type_int i,j,k,dim,npar,gn,save_sub;
+  type_real dx[3];
   char filename[200];
   FILE *pfout, *pfcentros;
   #ifdef FILE_ASCII
     FILE *pfcentros_ascii;
   #endif
+  struct propiedades_st Prop;
 
   i = iden.ngrupos-1; // LE RESTO UNO POR EL GRUPO 0 PARA ESCRIBIR EN EL ARCHIVO
 
@@ -268,84 +275,133 @@ static void Write_Groups(type_int niv)
   {
 
     j = 0;
-    id = k = Temp.head[i];
-    xc = yc = zc = 0.0f;    
+    k = Temp.head[i];
 
     if(niv==0)
       save_sub = i;
     else
-      save_sub = gr[niv-1][id];
+      save_sub = gr[niv-1][Temp.head[i]];
 
     fwrite(&save_sub,sizeof(type_int),1,pfout);
     fwrite(&i,sizeof(type_int),1,pfout);
-    fwrite(&Temp.npgrup[i],sizeof(type_int),1,pfout);
+    fwrite(&Temp.npgrup[i],sizeof(type_int),1,pfout);    
 
-    while(k != cp.npart)
+    Prop.npart = Temp.npgrup[i];
+    for(dim = 0; dim < 3; dim++)
+	  {
+		  Prop.pcm[dim] = 0.;
+#ifdef STORE_VELOCITIES        
+		  Prop.vcm[dim] = 0.;
+		  Prop.L[dim]   = 0.;
+		  Prop.sig[dim] = 0.;
+#endif
+	  }
+    Prop.pos = (type_real *) malloc(3*Prop.npart*sizeof(type_real));
+#ifdef STORE_VELOCITIES        
+    Prop.vel = (type_real *) malloc(3*Prop.npart*sizeof(type_real));
+#endif
+
+    while(k != iden.nobj)
     {
 
       // cuidado con el orden {pos[i]-centro} en este caso
-      dx = P.x[k] - P.x[id];
-      dy = P.y[k] - P.y[id];
-      dz = P.z[k] - P.z[id];
+#ifdef COLUMN
+      Prop.pos[3*j+0] = P.x[k];
+      Prop.pos[3*j+1] = P.y[k];
+      Prop.pos[3*j+2] = P.z[k];
+#ifdef STORE_VELOCITIES        
+      Prop.vel[3*j+0] = P.vx[k];
+      Prop.vel[3*j+1] = P.vy[k];
+      Prop.vel[3*j+2] = P.vz[k];
+#endif
 
-      #ifdef PERIODIC
-      dx = dx > cp.lbox*0.5 ? dx-cp.lbox : dx;
-      dy = dy > cp.lbox*0.5 ? dy-cp.lbox : dy;
-      dz = dz > cp.lbox*0.5 ? dz-cp.lbox : dz;
-  
-      dx = dx < -cp.lbox*0.5 ? dx+cp.lbox : dx;
-      dy = dy < -cp.lbox*0.5 ? dy+cp.lbox : dy;
-      dz = dz < -cp.lbox*0.5 ? dz+cp.lbox : dz;
-      #endif
+      dx[0] = P.x[k] - P.x[Temp.head[i]];
+      dx[1] = P.y[k] - P.y[Temp.head[i]];
+      dx[2] = P.z[k] - P.z[Temp.head[i]];
+#else
+      Prop.pos[3*j+0] = P[k].pos[0];
+      Prop.pos[3*j+1] = P[k].pos[1];
+      Prop.pos[3*j+2] = P[k].pos[2];
+#ifdef STORE_VELOCITIES        
+      Prop.vel[3*j+0] = P[k].vel[0];
+      Prop.vel[3*j+1] = P[k].vel[1];
+      Prop.vel[3*j+2] = P[k].vel[2];
+#endif
 
-      xc += dx;
-      yc += dy;
-      zc += dz;      
+      dx[0] = P[k].pos[0] - P[Temp.head[i]].pos[0];
+      dx[1] = P[k].pos[1] - P[Temp.head[i]].pos[1];
+      dx[2] = P[k].pos[2] - P[Temp.head[i]].pos[2];
+#endif
 
+      for(dim=0; dim<3; dim++)
+      {
+        #ifdef PERIODIC
+        if(dx[dim] >  cp.lbox*0.5)
+        {
+          dx[dim] -= cp.lbox;
+          Prop.pos[3*j+dim] -= cp.lbox;
+        }
+
+        if(dx[dim] < -cp.lbox*0.5)
+        {
+          dx[dim] += cp.lbox;
+          Prop.pos[3*j+dim] += cp.lbox;
+        }
+        #endif
+
+        Prop.pcm[dim] += dx[dim];
+#ifdef STORE_VELOCITIES        
+        Prop.vcm[dim] += Prop.vel[3*j + dim];
+#endif
+      }
+
+#ifdef COLUMN
       fwrite(&P.id[k],sizeof(type_int),1,pfout);
+#else
+      fwrite(&P[k].id,sizeof(type_int),1,pfout);
+#endif
       k = Temp.ll[k];
       j++;
     }
     
     assert(j == Temp.npgrup[i]);
 
-    xc *= (1.0f/(type_real)Temp.npgrup[i]);
-    yc *= (1.0f/(type_real)Temp.npgrup[i]);
-    zc *= (1.0f/(type_real)Temp.npgrup[i]);
+    for(dim = 0; dim < 3; dim++)
+	  {
+	  	Prop.pcm[dim] /= (type_real)Prop.npart;
+#ifdef STORE_VELOCITIES        
+	  	Prop.vcm[dim] /= (type_real)Prop.npart;
+#endif
 
-    xc += P.x[id];
-    yc += P.y[id];
-    zc += P.z[id];
+      //	Recenter	
+      Prop.pcm[dim] += Prop.pos[dim];
 
-    xc += pmin[0]; // IMPORTANTE
-    yc += pmin[1]; //
-    zc += pmin[2]; //
-         
-    #ifdef PERIODIC
-    xc = xc<0.0f     ? cp.lbox+xc : xc;
-    yc = yc<0.0f     ? cp.lbox+yc : yc;
-    zc = zc<0.0f     ? cp.lbox+zc : zc;
+#ifdef CHANGE_POSITION
+      Prop.pcm[idim] += pmin[idim];
+#endif
 
-    xc = xc>=cp.lbox ? xc-cp.lbox : xc;
-    yc = yc>=cp.lbox ? yc-cp.lbox : yc;
-    zc = zc>=cp.lbox ? zc-cp.lbox : zc;
+#ifdef PERIODIC
+      Prop.pcm[dim] = Prop.pcm[dim]<0.0f     ? cp.lbox+Prop.pcm[dim] : Prop.pcm[dim];
+      Prop.pcm[dim] = Prop.pcm[dim]>=cp.lbox ? Prop.pcm[dim]-cp.lbox : Prop.pcm[dim];
+#endif
 
+    }
 
-    //xc = xc<0 ? cp.lbox+(float)fmod(xc,cp.lbox) : (float)fmod(xc,cp.lbox);
-    //yc = yc<0 ? cp.lbox+(float)fmod(yc,cp.lbox) : (float)fmod(yc,cp.lbox);
-    //zc = zc<0 ? cp.lbox+(float)fmod(zc,cp.lbox) : (float)fmod(zc,cp.lbox);
-    #endif
+    propiedades(&Prop);
 
     fwrite(&save_sub,sizeof(type_int),1,pfcentros);
     fwrite(&i,sizeof(type_int),1,pfcentros);
-    fwrite(&xc,sizeof(type_real),1,pfcentros);
-    fwrite(&yc,sizeof(type_real),1,pfcentros);
-    fwrite(&zc,sizeof(type_real),1,pfcentros);
-    fwrite(&Temp.npgrup[i],sizeof(type_int),1,pfcentros);
+    write_properties(pfcentros, Prop);
 
     #ifdef FILE_ASCII
-      fprintf(pfcentros_ascii,"%u %u %f %f %f %u\n",save_sub,i,xc,yc,zc,Temp.npgrup[i]);
+      fprintf(pfcentros_ascii,"%u %u ",save_sub,i);
+      write_properties_ascii(pfcentros_ascii, Prop);
     #endif
+     
+    free(Prop.pos);
+#ifdef STORE_VELOCITIES        
+    free(Prop.vel);
+#endif
 
     npar+=j;
     gn++;
@@ -367,17 +423,34 @@ static void Write_Groups(type_int niv)
 extern void identification(void)
 {
   type_int i, j, tid;
-  type_int ngrid_old = grid.ngrid;
-  type_int *test;  
+  type_int ngrid_old;
 
-  gr = (unsigned int **) malloc(nfrac*sizeof(unsigned int *));
+  grid.ngrid = 0;
+
+  ngrid_old = grid.ngrid;
+  iden.nobj = cp.npart;
+  iden.r0 = (double *) malloc(nfrac*sizeof(double));
+  gr      = (unsigned int **) malloc(nfrac*sizeof(unsigned int *));
+
   for(j=0;j<nfrac;j++)
-    gr[j] = (unsigned int *) malloc(cp.npart*sizeof(unsigned int));
+  {
+    gr[j] = (unsigned int *) malloc(iden.nobj*sizeof(unsigned int));
+    iden.r0[j]  = fof[j];
+    iden.r0[j] *= cbrt(cp.Mpart*1.0E10/cp.omegam/RHOCRIT)*1000.0f; //EN KPC
+
+    if(iden.r0[j] <= cp.soft)
+    {
+      fprintf(stdout,"cambia Linking length = %f \n",iden.r0[j]);
+      iden.r0[j] = cp.soft;
+    }
+
+    fprintf(stdout,"Linking length %d = %f \n",j,iden.r0[j]);
+  }
 
   #ifdef LOCK
-    lock = (omp_lock_t *) malloc(cp.npart*sizeof(omp_lock_t));
+    lock = (omp_lock_t *) malloc(iden.nobj*sizeof(omp_lock_t));
   #endif
-  for(i=0;i<cp.npart;i++)
+  for(i=0;i<iden.nobj;i++)
   {
     #ifdef LOCK
       omp_init_lock(&(lock[i]));
@@ -396,7 +469,6 @@ extern void identification(void)
   }
 
   grid.ngrid = (long)(cp.lbox/iden.r0[i]);
-  test = (type_int *) calloc(cp.npart/32 + 1,sizeof(type_int));
 
   if(grid.ngrid > NGRIDMAX){
     fprintf(stdout,"Using NGRIDMAX = %d\n",NGRIDMAX);
@@ -426,52 +498,27 @@ extern void identification(void)
 
   #ifdef LOCK
     #pragma omp parallel default(none) private(tid,i) \
-    shared(P,iden,cp,test,lock,stdout)   
+    shared(P,iden,cp,lock,stdout)   
   #else
     #pragma omp parallel default(none) private(tid,i) \
-    shared(P,iden,cp,test,stdout)   
+    shared(P,iden,cp,stdout)   
   #endif
   {
     tid = omp_get_thread_num(); 
 
-    for(i = tid*DIV_CEIL(cp.npart,NTHREADS);
-    i<(tid==NTHREADS-1 ? cp.npart : (tid+1)*DIV_CEIL(cp.npart,NTHREADS));
+    for(i = tid*DIV_CEIL(iden.nobj,NTHREADS);
+    i<(tid==NTHREADS-1 ? iden.nobj : (tid+1)*DIV_CEIL(iden.nobj,NTHREADS));
     i++)
+    //#pragma omp master
+    //for(i = 0; i<iden.nobj; i++)
     {
      
-      if(i%1000000==0) fprintf(stdout,"%u %u %.4f\n",tid,i,(float)i/(float)cp.npart);
+      if(i%1000000==0) fprintf(stdout,"%u %u %.4f\n",tid,i,(float)i/(float)iden.nobj);
 
-      //#pragma omp taskwait
-      //#pragma omp task
-
-      #pragma omp taskgroup
+      //#pragma omp taskgroup
+      #pragma omp task
       {
-
-        #ifdef LOCK
-
-          omp_set_lock(&(lock[i]));
-
-          if(TestBit(test,i))
-          { 
-
-            omp_unset_lock(&(lock[i]));
-
-          }else{
-
-            SetBit(test,i);
-            omp_unset_lock(&(lock[i]));
-            busv(i,test);
-          } 
-
-        #else
-
-          if(!TestBit(test,i))
-          {
-            SetBit(test,i);
-            busv(i,test);
-          }
-
-        #endif
+        busv(i);
       }
     }
 
@@ -480,21 +527,20 @@ extern void identification(void)
   fprintf(stdout,"Sale del paralelo\n"); fflush(stdout);
 
   #ifdef LOCK
-  for(i=0;i<cp.npart;i++) 
+  for(i=0;i<iden.nobj;i++) 
     omp_destroy_lock(&(lock[i]));
   free(lock);
   #endif
 
   for(j=0;j<nfrac;j++)
   {
-    linkedlist(test, gr[j]);
+    linkedlist(gr[j]);
     Write_Groups(j);
 
     free(Temp.head);
     free(Temp.npgrup);
     free(Temp.ll);
   }
-  free(test);
 
   for(j=0;j<nfrac;j++)
     free(gr[j]);

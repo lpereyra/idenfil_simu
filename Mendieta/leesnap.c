@@ -1,13 +1,16 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <assert.h>
 #include "variables.h"
-#include "cosmoparam.h"
+#include "allocate.h"
 #include "leesnap.h"
 #include "colores.h"
 
-static void leeheader(const char *filename){
+static struct io_header header;
+
+static void leeheader(const char *filename)
+{
   FILE *pf;
   type_int d1,d2;
 
@@ -56,7 +59,8 @@ static void leeheader(const char *filename){
   printf("*********************************** \n");
 }
 
-static void lee(const char *filename, type_int *ind){
+static void lee(const char *filename, type_int * restrict ind)
+{
   FILE *pf;
   type_int d1, d2;
   type_int k, pc, n;
@@ -83,13 +87,37 @@ static void lee(const char *filename, type_int *ind){
   assert(d1==d2);
 
   fread(&d1, sizeof(d1), 1, pf);
-  for(k = 0, pc = 0; k < N_part_types; k++){
+  for(k = 0, pc = *ind; k < N_part_types; k++){
     for(n = 0; n < header.npart[k]; n++){
-      fread(&r[0], size_real, 3, pf);
+      fread(&r[0], sizeof(type_real), 3, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        P.x[*ind+pc] = r[0]*POSFACTOR;
-        P.y[*ind+pc] = r[1]*POSFACTOR;
-        P.z[*ind+pc] = r[2]*POSFACTOR;
+      #ifdef COLUMN
+        P.x[pc] = r[0]*POSFACTOR;
+        P.y[pc] = r[1]*POSFACTOR;
+        P.z[pc] = r[2]*POSFACTOR;
+
+#ifdef CHANGE_POSITION
+        if(P.x[pc] > pmax[0]) pmax[0] = P.x[pc];
+        if(P.x[pc] < pmin[0]) pmin[0] = P.x[pc];
+        if(P.y[pc] > pmax[1]) pmax[1] = P.y[pc];
+        if(P.y[pc] < pmin[1]) pmin[1] = P.y[pc];
+        if(P.z[pc] > pmax[2]) pmax[2] = P.z[pc];
+        if(P.z[pc] < pmin[2]) pmin[2] = P.z[pc];
+#endif
+      #else
+        P[pc].pos[0] = r[0]*POSFACTOR;
+        P[pc].pos[1] = r[1]*POSFACTOR;
+        P[pc].pos[2] = r[2]*POSFACTOR;
+
+#ifdef CHANGE_POSITION
+        if(P[pc].pos[0] > pmax[0]) pmax[0] = P[pc].pos[0];
+        if(P[pc].pos[0] < pmin[0]) pmin[0] = P[pc].pos[0];
+        if(P[pc].pos[1] > pmax[1]) pmax[1] = P[pc].pos[1];
+        if(P[pc].pos[1] < pmin[1]) pmin[1] = P[pc].pos[1];
+        if(P[pc].pos[2] > pmax[2]) pmax[2] = P[pc].pos[2];
+        if(P[pc].pos[2] < pmin[2]) pmin[2] = P[pc].pos[2];
+#endif
+      #endif
         pc++;
       }
     }
@@ -99,13 +127,19 @@ static void lee(const char *filename, type_int *ind){
 
   fread(&d1, sizeof(d1), 1, pf);
 #ifdef STORE_VELOCITIES
-  for(k = 0, pc = 0; k < N_part_types; k++){
+  for(k = 0, pc = *ind; k < N_part_types; k++){
     for(n = 0; n < header.npart[k]; n++){
-      fread(&v[0], size_real, 3, pf);
+      fread(&v[0], sizeof(type_real), 3, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        P.vx[*ind+pc] = v[0]*VELFACTOR;
-        P.vy[*ind+pc] = v[1]*VELFACTOR;
-        P.vz[*ind+pc] = v[2]*VELFACTOR;
+      #ifdef COLUMN        
+        P.vx[pc] = v[0]*VELFACTOR;
+        P.vy[pc] = v[1]*VELFACTOR;
+        P.vz[pc] = v[2]*VELFACTOR;
+      #else
+        P[pc].vel[0] = v[0]*VELFACTOR;
+        P[pc].vel[1] = v[1]*VELFACTOR;
+        P[pc].vel[2] = v[2]*VELFACTOR;
+      #endif
         pc++;
       }
     }
@@ -118,11 +152,15 @@ static void lee(const char *filename, type_int *ind){
 
   fread(&d1, sizeof(d1), 1, pf);
 #ifdef STORE_IDS
-  for(k = 0, pc = 0; k < N_part_types; k++){
+  for(k = 0, pc = *ind; k < N_part_types; k++){
     for(n = 0; n < header.npart[k]; n++){
-      fread(&id, size_int, 1, pf);
+      fread(&id, sizeof(type_int), 1, pf);
       if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
-        P.id[*ind+pc] = id;
+      #ifdef COLUMN
+        P.id[pc] = id;
+      #else
+        P[pc].id = id;
+      #endif
         pc++;
       }
     }
@@ -133,7 +171,7 @@ static void lee(const char *filename, type_int *ind){
   fread(&d2, sizeof(d2), 1, pf);
   assert(d1==d2);
 
-  *ind += pc;
+  *ind = pc;
   
   fclose(pf);
 }
@@ -143,6 +181,14 @@ extern void read_gadget(void)
   char filename[200];
   type_int ifile, ind;
   size_t total_memory;
+
+#ifdef CHANGE_POSITION
+  for(ind = 0; ind < 3; ind++)
+  {
+    pmin[ind] =  1.E26; 
+    pmax[ind] = -1.E26;
+  }
+#endif
 
   if(snap.nfiles>1)
     sprintf(filename,"%s%s.0",snap.root,snap.name);
@@ -154,10 +200,11 @@ extern void read_gadget(void)
   /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
   total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
   printf("Allocating %.5zu Gb for %u particles\n",total_memory,cp.npart);
-  if(!allocate_particles(cp.npart))  exit(1);
+  if(!allocate_particles(&P, cp.npart))  exit(1);
 
   /***** LEE POS Y VEL DE LAS PARTICULAS ***********************/
-  for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++){
+  for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++)
+  {
     if(snap.nfiles>1)
       sprintf(filename,"%s%s.%d",snap.root,snap.name,ifile);
     else
@@ -166,5 +213,44 @@ extern void read_gadget(void)
     lee(filename,&ind);
   }
 
+  cp.lbox *= POSFACTOR;
+
+  fprintf(stdout,"cp.lbox %f....\n",cp.lbox);
   fprintf(stdout,"End reading snapshot file(s)...\n"); fflush(stdout);
 }
+
+#ifdef CHANGE_POSITION
+
+extern void change_positions(type_int n)
+{
+  type_int ip;
+
+  printf("xmin %.1f xmax %.1f\n",pmin[0],pmax[0]);
+  printf("ymin %.1f ymax %.1f\n",pmin[1],pmax[1]);
+  printf("zmin %.1f zmax %.1f\n",pmin[2],pmax[2]);
+
+  for(ip=0;ip<n;ip++)
+  {
+#ifdef COLUMN
+    P.x[ip] -= pmin[0];
+    P.y[ip] -= pmin[1];
+    P.z[ip] -= pmin[2];
+#else
+    P[ip].pos[0] -= pmin[0];
+    P[ip].pos[1] -= pmin[1];
+    P[ip].pos[2] -= pmin[2];
+#endif
+  }
+
+  cp.lbox = 0.0f;
+  for(ip = 0; ip < 3; ip++)
+    if(cp.lbox < (pmax[ip] - pmin[ip])) 
+      cp.lbox = (pmax[ip] - pmin[ip]);
+
+  cp.lbox *= 1.001;
+
+  fprintf(stdout,"Changing cp.lbox %f....\n",cp.lbox);
+
+}
+
+#endif
