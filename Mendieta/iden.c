@@ -6,6 +6,7 @@
 
 #include "propiedades.h"
 #include "variables.h"
+#include "allocate.h"
 #include "leesnap.h"
 #include "grid.h"
 #include "iden.h"
@@ -13,6 +14,7 @@
 
 #define DIV_CEIL(x,y) (x+y-1)/y
 
+static type_int nstep;
 static struct iden_st iden;
 static struct temporary Temp;
 static type_int **gr;
@@ -170,7 +172,7 @@ static void busv(const type_int ic)
             zz = ( zz < -cp.lbox*0.5f ) ? zz + cp.lbox : zz ;
             #endif
 
-            for(niv=0;niv<nfrac;niv++)
+            for(niv=0;niv<nstep;niv++)
             {
       	      if(xx*xx + yy*yy + zz*zz < iden.r0[niv])
               {
@@ -189,7 +191,7 @@ static void busv(const type_int ic)
 static void linkedlist(type_int * restrict ar)
 {
   type_int i, g;
-
+  
   Temp.ll = (type_int *) calloc(iden.nobj,sizeof(type_int));
 
   iden.ngrupos = 0;
@@ -241,7 +243,7 @@ static void linkedlist(type_int * restrict ar)
   return;
 }
 
-static void Write_Groups(type_int niv)
+static void Write_Groups(const type_int niv)
 {
   type_int i,j,k,dim,npar,gn,save_sub;
   type_real dx[3];
@@ -276,12 +278,11 @@ static void Write_Groups(type_int niv)
 
     j = 0;
     k = Temp.head[i];
-
-    if(niv==0)
-      save_sub = i;
-    else
-      save_sub = gr[niv-1][Temp.head[i]];
-
+#ifdef COLUMN           
+    save_sub = P.sub[k] == 0 ? i : P.sub[k];
+#else
+    save_sub = P[k].sub == 0 ? i : P[k].sub;
+#endif
     fwrite(&save_sub,sizeof(type_int),1,pfout);
     fwrite(&i,sizeof(type_int),1,pfout);
     fwrite(&Temp.npgrup[i],sizeof(type_int),1,pfout);    
@@ -357,8 +358,10 @@ static void Write_Groups(type_int niv)
 
 #ifdef COLUMN
       fwrite(&P.id[k],sizeof(type_int),1,pfout);
+      P.sub[k] = i;
 #else
       fwrite(&P[k].id,sizeof(type_int),1,pfout);
+      P[k].sub = i;
 #endif
       k = Temp.ll[k];
       j++;
@@ -377,7 +380,7 @@ static void Write_Groups(type_int niv)
       Prop.pcm[dim] += Prop.pos[dim];
 
 #ifdef CHANGE_POSITION
-      Prop.pcm[idim] += pmin[idim];
+      Prop.pcm[dim] += pmin[dim];
 #endif
 
 #ifdef PERIODIC
@@ -422,128 +425,166 @@ static void Write_Groups(type_int niv)
 
 extern void identification(void)
 {
-  type_int i, j, tid;
+  const type_int ncut = 2;
+  type_int i, j, step, tid;
   type_int ngrid_old;
 
   grid.ngrid = 0;
 
-  ngrid_old = grid.ngrid;
-  iden.nobj = cp.npart;
-  iden.r0 = (double *) malloc(nfrac*sizeof(double));
-  gr      = (unsigned int **) malloc(nfrac*sizeof(unsigned int *));
-
-  for(j=0;j<nfrac;j++)
+  for(step=0;step<DIV_CEIL(nfrac,ncut);step++)
   {
-    gr[j] = (unsigned int *) malloc(iden.nobj*sizeof(unsigned int));
-    iden.r0[j]  = fof[j];
-    iden.r0[j] *= cbrt(cp.Mpart*1.0E10/cp.omegam/RHOCRIT)*1000.0f; //EN KPC
+    if(nfrac%ncut == 0)
+      nstep = ncut;
+    else
+      nstep = step == DIV_CEIL(nfrac,2) - 1 ? nfrac-ncut*step : ncut;
 
-    if(iden.r0[j] <= cp.soft)
+    fprintf(stdout,"%d %d\n",step,nstep);
+
+    ngrid_old = grid.ngrid;
+    iden.nobj = cp.npart;
+    iden.r0 = (double *) malloc(nstep*sizeof(double));
+    gr      = (type_int **) malloc(nstep*sizeof(type_int *));
+
+    for(j=0;j<nstep;j++)
     {
-      fprintf(stdout,"cambia Linking length = %f \n",iden.r0[j]);
-      iden.r0[j] = cp.soft;
-    }
+      gr[j] = (unsigned int *) malloc(iden.nobj*sizeof(unsigned int));
+      iden.r0[j]  = fof[ncut*step+j];
+      iden.r0[j] *= cbrt(cp.Mpart*1.0E10/cp.omegam/RHOCRIT)*1000.0f; //EN KPC
 
-    fprintf(stdout,"Linking length %d = %f \n",j,iden.r0[j]);
-  }
-
-  #ifdef LOCK
-    lock = (omp_lock_t *) malloc(iden.nobj*sizeof(omp_lock_t));
-  #endif
-  for(i=0;i<iden.nobj;i++)
-  {
-    #ifdef LOCK
-      omp_init_lock(&(lock[i]));
-    #endif
-    for(j=0; j<nfrac; j++)
-    {
-      gr[j][i] = i;
-    }
-  }
-
-  if(nfrac!=1)
-  {
-    i = (iden.r0[0]>iden.r0[nfrac-1]) ? 0 : nfrac-1; // ORDEN DECRECIENTE O CRECIENTE
-  }else{
-    i = 0;  
-  }
-
-  grid.ngrid = (long)(cp.lbox/iden.r0[i]);
-
-  if(grid.ngrid > NGRIDMAX){
-    fprintf(stdout,"Using NGRIDMAX = %d\n",NGRIDMAX);
-    grid.ngrid = NGRIDMAX;
-  }
-  
-  grid.nobj = iden.nobj;
-
-  if(ngrid_old != grid.ngrid)
-  {
-    grid_free();
-    grid_init();
-    grid_build();
-  }
-
-  for(i=0;i<nfrac;i++)
-    iden.r0[i] *= iden.r0[i];
-
-  #ifdef NTHREADS
-  omp_set_dynamic(0);
-  omp_set_num_threads(NTHREADS);
-  #endif
-    
-  fprintf(stdout,"Comienza identificacion.....\n");
-  fprintf(stdout,"\nRunning on %d threads\n",NTHREADS);
-  fflush(stdout);
-
-  #ifdef LOCK
-    #pragma omp parallel default(none) private(tid,i) \
-    shared(P,iden,cp,lock,stdout)   
-  #else
-    #pragma omp parallel default(none) private(tid,i) \
-    shared(P,iden,cp,stdout)   
-  #endif
-  {
-    tid = omp_get_thread_num(); 
-
-    for(i = tid*DIV_CEIL(iden.nobj,NTHREADS);
-    i<(tid==NTHREADS-1 ? iden.nobj : (tid+1)*DIV_CEIL(iden.nobj,NTHREADS));
-    i++)
-    //#pragma omp master
-    //for(i = 0; i<iden.nobj; i++)
-    {
-     
-      if(i%1000000==0) fprintf(stdout,"%u %u %.4f\n",tid,i,(float)i/(float)iden.nobj);
-
-      //#pragma omp taskgroup
-      #pragma omp task
+      if(iden.r0[j] <= cp.soft)
       {
-        busv(i);
+        fprintf(stdout,"cambia Linking length = %f \n",iden.r0[j]);
+        iden.r0[j] = cp.soft;
+      }
+
+      fprintf(stdout,"Linking length %d = %f \n",2*step+j,iden.r0[j]);
+    }
+
+    #ifdef LOCK
+      lock = (omp_lock_t *) malloc(iden.nobj*sizeof(omp_lock_t));
+    #endif
+    for(i=0;i<iden.nobj;i++)
+    {
+#ifdef COLUMN           
+      P.sub[i] = step == 0 ? 0 : P.sub[i];
+#else
+      P[i].sub = step == 0 ? 0 : P[i].sub;
+#endif
+      #ifdef LOCK
+        omp_init_lock(&(lock[i]));
+      #endif
+      for(j=0; j<nstep; j++)
+      {
+        gr[j][i] = i;
       }
     }
 
-  }  /****** TERMINA SECCION PARALELA ****************************/
+    grid.ngrid = (long)(cp.lbox/iden.r0[0]);
 
-  fprintf(stdout,"Sale del paralelo\n"); fflush(stdout);
+    if(grid.ngrid > NGRIDMAX)
+    {
+      fprintf(stdout,"Using NGRIDMAX = %d\n",NGRIDMAX);
+      grid.ngrid = NGRIDMAX;
+    }
+    
+    grid.nobj = iden.nobj;
 
-  #ifdef LOCK
-  for(i=0;i<iden.nobj;i++) 
-    omp_destroy_lock(&(lock[i]));
-  free(lock);
-  #endif
+    if(ngrid_old != grid.ngrid)
+    {
+      grid_free();
+      grid_init();
+      grid_build();
+    }
 
-  for(j=0;j<nfrac;j++)
-  {
-    linkedlist(gr[j]);
-    Write_Groups(j);
+    for(i=0;i<nstep;i++)
+      iden.r0[i] *= iden.r0[i];
 
-    free(Temp.head);
-    free(Temp.npgrup);
-    free(Temp.ll);
+    #ifdef NTHREADS
+    omp_set_dynamic(0);
+    omp_set_num_threads(NTHREADS);
+    #endif
+      
+    fprintf(stdout,"Comienza identificacion.....\n");
+    fprintf(stdout,"\nRunning on %d threads\n",NTHREADS);
+    fflush(stdout);
+
+    #ifdef LOCK
+      #pragma omp parallel default(none) private(tid,i) \
+      shared(P,iden,cp,lock,stdout)   
+    #else
+      #pragma omp parallel default(none) private(tid,i) \
+      shared(P,iden,cp,stdout)   
+    #endif
+    {
+      tid = omp_get_thread_num(); 
+
+      for(i = tid*DIV_CEIL(iden.nobj,NTHREADS);
+      i<(tid==NTHREADS-1 ? iden.nobj : (tid+1)*DIV_CEIL(iden.nobj,NTHREADS));
+      i++)
+      {
+       
+        if(i%1000000==0) fprintf(stdout,"%u %u %.4f\n",tid,i,(float)i/(float)iden.nobj);
+
+        #pragma omp task
+        {
+          busv(i);
+        }
+      }
+
+    }  /****** TERMINA SECCION PARALELA ****************************/
+
+    fprintf(stdout,"Sale del paralelo\n"); fflush(stdout);
+
+    #ifdef LOCK
+    for(i=0;i<iden.nobj;i++) 
+      omp_destroy_lock(&(lock[i]));
+    free(lock);
+    #endif
+
+    for(j=0;j<nstep;j++)
+    {
+      linkedlist(gr[j]);
+      Write_Groups(ncut*step+j);
+
+      free(gr[j]);
+      free(Temp.ll);
+      free(Temp.head);
+      free(Temp.npgrup);
+    }
+
+    j = 0;
+    for(i=0;i<iden.nobj;i++)
+    {
+#ifdef COLUMN           
+      if(P.sub[i] != 0)
+      {
+        P.x[j] = P.x[i];
+        P.y[j] = P.y[i];
+        P.z[j] = P.z[i];
+        #ifdef STORE_VELOCITIES
+          P.vx[j] = P.vx[i];
+          P.vy[j] = P.vy[i];
+          P.vz[j] = P.vz[i];
+        #endif
+        #ifdef STORE_IDS
+          P.id[j] = P.id[i];
+        #endif
+        P.sub[j] = P.sub[i];
+        j++;
+      }
+#else
+      if(P[i].sub != 0)
+      {
+        P[j] = P[i];
+        j++;
+      }
+#endif
   }
+  
+    cp.npart = j;
+    if(!reallocate_particles(&P, cp.npart))  exit(1);
 
-  for(j=0;j<nfrac;j++)
-    free(gr[j]);
+  }
 
   fprintf(stdout,"Termino identificacion\n"); fflush(stdout);
 

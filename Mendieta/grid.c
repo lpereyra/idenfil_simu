@@ -96,6 +96,7 @@ extern void grid_build(void)
       #ifdef STORE_IDS
         type_int Pid_source  = P.id[i];
       #endif
+      type_int Psub_source  = P.sub[i];
 
 #else
 
@@ -120,6 +121,7 @@ extern void grid_build(void)
         #ifdef STORE_IDS
           type_int  Pid_save = P.id[dest];
         #endif
+        type_int  Psub_save = P.sub[dest];
 #else
         struct particle_data P_save = P[dest];
 #endif
@@ -138,6 +140,7 @@ extern void grid_build(void)
         #ifdef STORE_IDS
           P.id[dest] = Pid_source;
         #endif
+        P.sub[dest] = Psub_source;
 #else
         P[dest] = P_source;
 #endif
@@ -158,6 +161,7 @@ extern void grid_build(void)
 	#ifdef STORE_IDS
           Pid_source = Pid_save;
 	#endif
+        Psub_source = Psub_save;
 
 #else
         P_source = P_save;

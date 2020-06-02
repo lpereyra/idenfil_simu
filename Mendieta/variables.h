@@ -80,6 +80,7 @@ extern struct gridst
     #ifdef STORE_IDS
     type_int       *id;
     #endif
+    type_int       *sub;
   } P;
 
 #else
@@ -93,6 +94,7 @@ extern struct gridst
     #ifdef STORE_IDS
     type_int       id;
     #endif
+    type_int       sub;
   } *P;
 
 #endif

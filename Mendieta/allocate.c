@@ -43,6 +43,7 @@
 
   #ifdef STORE_IDS
   Q->id = NULL;
+
   Q->id = (type_int  *) malloc(size*sizeof(type_int));
   
   if(!Q->id) 
@@ -52,9 +53,20 @@
   }
   #endif
 
+  Q->sub = NULL;
+
+  Q->sub = (type_int  *) malloc(Q->sub,size*sizeof(type_int));
+  
+  if(!Q->sub) 
+  {
+    fprintf(stderr, "cannot allocate sub particles\n" );
+    return(0);
+  }
+
 #else
 
   *Q = NULL;
+
   *Q = (struct particle_data *) malloc(size*sizeof(struct particle_data));
 
   if(!*Q) 
@@ -92,4 +104,68 @@
 #endif  
 
 }
+
+#ifdef COLUMN
+  extern int reallocate_particles(struct particle_data  *Q, const type_int size)
+#else
+  extern int reallocate_particles(struct particle_data **Q, const type_int size)
+#endif
+{
+
+#ifdef COLUMN
+  Q->x  = (type_real *) realloc(Q->x,size*sizeof(type_real));
+  Q->y  = (type_real *) realloc(Q->y,size*sizeof(type_real));
+  Q->z  = (type_real *) realloc(Q->z,size*sizeof(type_real));
+
+  if(!Q->x || !Q->y || !Q->z) 
+  {
+    fprintf(stderr, "cannot reallocate pos particles\n" );
+    return(0);
+  }
+
+  #ifdef STORE_VELOCITIES
+  Q->vx = (type_real *) realloc(Q->vx,size*sizeof(type_real));
+  Q->vy = (type_real *) realloc(Q->vy,size*sizeof(type_real));
+  Q->vz = (type_real *) realloc(Q->vz,size*sizeof(type_real));
+
+  if(!Q->vx || !Q->vy || !Q->vz) 
+  {
+    fprintf(stderr, "cannot reallocate vel particles\n" );
+    return(0);
+  }
+  #endif
+
+  #ifdef STORE_IDS
+  Q->id = (type_int  *) realloc(Q->id,size*sizeof(type_int));
+  
+  if(!Q->id) 
+  {
+    fprintf(stderr, "cannot reallocate ids particles\n" );
+    return(0);
+  }
+  #endif
+
+  Q->sub = (type_int  *) realloc(Q->sub,size*sizeof(type_int));
+  
+  if(!Q->sub) 
+  {
+    fprintf(stderr, "cannot reallocate sub particles\n" );
+    return(0);
+  }
+
+#else
+
+  *Q = (struct particle_data *) realloc(*Q,size*sizeof(struct particle_data));
+
+  if(!*Q) 
+  {
+    fprintf(stderr, "cannot reallocate particles\n" );
+    return(0);
+  }    
+
+#endif
+
+  return ( 1 );
+}
+
 
