@@ -55,7 +55,7 @@
 
   Q->sub = NULL;
 
-  Q->sub = (type_int  *) malloc(Q->sub,size*sizeof(type_int));
+  Q->sub = (type_int  *) malloc(size*sizeof(type_int));
   
   if(!Q->sub) 
   {

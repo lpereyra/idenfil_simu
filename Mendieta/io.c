@@ -52,6 +52,8 @@ extern void init_variables(int argc, char **argv)
 
   fof = (type_real *) malloc(nfrac*sizeof(type_real));
 
+#ifdef READ_LEVELS
+
   for(i=0;i<nfrac;i++)
   {
     #ifdef PRECDOUBLE
@@ -64,6 +66,17 @@ extern void init_variables(int argc, char **argv)
       exit(0);
     }
   }
+
+#else
+
+  for(i = 0; i < nfrac; i++)
+  {
+    fof[i]  = 1.0f/(type_real)(nfrac + 1);
+    fof[i] *= (type_real)(nfrac + 1 - i);
+    fof[i] *= cbrt(1./(1.+FOF_OVERDENSITY));
+  }
+
+#endif
 
   fclose(pfin);
 
@@ -87,12 +100,14 @@ extern void init_variables(int argc, char **argv)
   sprintf(message,"# of snapshots:          %d\n",snap.nfiles);BLUE(message);
   sprintf(message,"Softening of simulation: %lf \n",cp.soft);BLUE(message);
   sprintf(message,"Identification steps:    %d\n",nfrac);BLUE(message);
-  BLUE("************* Options ************\n");
+#ifdef READ_LEVELS
+  BLUE("************* Read Levels ************\n");
   for(i=0;i<nfrac;i++)
   {
     sprintf(message,"%d overdensity %.2f\n",i,fof[i]);BLUE(message);
     fof[i] = cbrt(1./(1.+fof[i]));
   }
+#endif
 
   BLUE("********** Makefile Options ***********\n");
   #ifdef DEBUG

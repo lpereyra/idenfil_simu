@@ -10,5 +10,7 @@ struct gridst grid;
 #endif
 type_int  nfrac;
 type_real *fof;
-type_real pmin[3], pmax[3];
+#ifdef CHANGE_POSITION
+  type_real pmin[3], pmax[3];
+#endif
 char message[200];

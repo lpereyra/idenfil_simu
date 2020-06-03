@@ -38,7 +38,6 @@ int main(int argc, char **argv)
 
   /************* TERMINO LA IDENTIFICACION ***************/
   free_particles(&P);
-  grid_free();
 
   TIMER(end);
   printf("Total time %f\n",end-start);

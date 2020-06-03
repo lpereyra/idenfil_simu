@@ -369,17 +369,6 @@ extern void propiedades(struct propiedades_st *Prop)
 	/* Autovalores del tensor de forma */
 	forma(Prop);
 
-  //type_real tmp[3];
-  //for(int jj=0;jj<3;jj++)
-  //{
-  //  tmp[0] = (type_real)gsl_matrix_get(Prop->evec,0,jj);
-  //  tmp[1] = (type_real)gsl_matrix_get(Prop->evec,1,jj);
-  //  tmp[2] = (type_real)gsl_matrix_get(Prop->evec,2,jj);
-  //  for(int dim=0;dim<3;dim++)
-  //    fprintf(stdout,"%f ",tmp[dim]);
-  //  fprintf(stdout,"\n");
-  //}
-
   return;
 }
 
