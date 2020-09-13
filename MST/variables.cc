@@ -3,21 +3,14 @@
 #include <math.h>
 #include <ctype.h>
 #include "variables.hh"
-#include "cosmoparam.hh"
 #include "leesnap.hh"
 #include "colores.hh"
 
-
-size_t     size_real;
-size_t     size_int;
 char       message[200]  ;
 struct     cosmoparam cp ;
 struct     SnapST    snap;
 type_int   nfrac         ;
 type_real  *fof          ;
-#ifdef MCRITIC
-  type_real m_critica;
-#endif
 
 extern void init_variables(int argc, char **argv){
   FILE *pfin;
@@ -25,12 +18,6 @@ extern void init_variables(int argc, char **argv){
   type_int i;
 
   RED("Initializing variables...\n");
-
-  size_real = sizeof(type_real);
-  fprintf(stdout,"type_real: %zu\n",size_real);
-
-  size_int  = sizeof(type_int);
-  fprintf(stdout,"type_int:  %zu\n",size_int);
 
   sprintf(filename,"%s",argv[1]);
   if(!(pfin=fopen(filename,"r")))
@@ -84,19 +71,6 @@ extern void init_variables(int argc, char **argv){
     }
   }
 
-  #ifdef MCRITIC
-
-  #ifdef PRECDOUBLE
-    if(!fscanf(pfin,"%lf \n",&m_critica))
-  #else
-    if(!fscanf(pfin,"%f \n",&m_critica))
-  #endif
-    {
-      sprintf(message,"can't read file `%s`\nneed M_CRITIC\n",filename);RED(message);
-      exit(0);
-    }
-  #endif
-
   fclose(pfin);
 
   /////////////////////////////////////////////////////////////////////////
@@ -123,10 +97,6 @@ sprintf(message,"Snapnum:                 %d\n",snap.num);BLUE(message);
     sprintf(message,"%d overdensity %.2f\n",i,fof[i]);BLUE(message);
     fof[i] = cbrt(1./(1.+fof[i]));
   }
-
-  #ifdef MCRITIC
-  sprintf(message,"M_CRIT [10^10 Msol / h]  %f\n",m_critica);RED(message);
-  #endif
 
   BLUE("********** Makefile Options ***********\n");
   #ifdef DEBUG
