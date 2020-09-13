@@ -1,16 +1,12 @@
 #ifndef LEESNAP_H
 #define LEESNAP_H
 
-extern void read_gadget(void);
+#ifndef VARIABLES_H
+  #include "variables.h"
+#endif
 
-/*Input and output files*/
-struct SnapST{
-  int nfiles;
-  char root[200], name[200];
-  int num;
-} snap;
-
-struct io_header{
+struct io_header
+{
   type_int npart[N_part_types];
   double   mass[N_part_types];
   double   time;
@@ -25,6 +21,11 @@ struct io_header{
   double   OmegaLambda;
   double   HubbleParam; 
   char     fill[256- N_part_types*4- N_part_types*8- 2*8- 2*4- N_part_types*4- 2*4 - 4*8];  /* fills to 256 Bytes */
-} header;
+};
+
+extern void read_gadget(void);
+#ifdef CHANGE_POSITION
+  extern void change_positions(type_int n);
+#endif
 
 #endif

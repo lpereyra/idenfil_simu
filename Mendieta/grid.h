@@ -2,17 +2,10 @@
 #define GRID_H
 
 #ifndef NGRIDMAX
-#define NGRIDMAX 512
+  #define NGRIDMAX 512
 #endif
 
-struct gridst
-{
-  unsigned long ngrid;
-  unsigned long nobj;
-  type_int *icell;
-  type_int *size;
-} grid;
-
+#define igrid(ix,iy,iz,ngrid) (ix * ngrid + iy) * ngrid + iz
 
 extern void grid_init(void);
 extern void grid_build(void);

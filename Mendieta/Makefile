@@ -4,20 +4,24 @@ EXTRAS += -DPERIODIC    #periodic boundary condition
 #EXTRAS += -DLONGIDS            #IDs are long integer
 EXTRAS += -DPOSFACTOR=1000.0    #Positions in Kpc/h
 #EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
+#EXTRAS += -DSTORE_VELOCITIES
 EXTRAS += -DSTORE_IDS
+#EXTRAS += -DCOLUMN
+EXTRAS += -DFILE_ASCII
 
 #CC
 CC     := $(OMPP) gcc $(DOMPP)
-DC     := -DNTHREADS=32
+DC     := -DNTHREADS=4
 DC     += -DLOCK
+GSLL   := -lgsl -lgslcblas
 CFLAGS := -Wall -O3 -march=native -ftree-vectorize -fopenmp -g
-LIBS   := -lm
+LIBS   := -lm $(GSLL) 
 
 .PHONY : cleanall clean todo 
 
 MAKEFILE := Makefile
 
-OBJS := leesnap.o grid.o variables.o iden.o
+OBJS :=  variables.o io.o allocate.o leesnap.o grid.o iden.o propiedades.o deltas.o octree.o
 
 HEADERS := $(patsubst %.o,$.h,$(OBJS))
 
