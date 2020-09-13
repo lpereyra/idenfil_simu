@@ -180,6 +180,8 @@ extern void write_properties(FILE *pfout, struct propiedades_st Prop)
 
   extern void write_properties_ascii(FILE *pfout, struct propiedades_st Prop)
   {
+	  type_int   jj;
+
     fprintf(pfout,"%d %f %f %f ",
          Prop.npart,Prop.pcm[0],Prop.pcm[1],Prop.pcm[2]);
   #ifdef STORE_VELOCITIES  
@@ -194,9 +196,13 @@ extern void write_properties(FILE *pfout, struct propiedades_st Prop)
   #endif
     fprintf(pfout,"%f %f %f",
          Prop.aa,Prop.bb,Prop.cc);
+    for(jj=0;jj<3;jj++)
+      fprintf(pfout," %f %f %f",Prop.evec[jj][0],Prop.evec[jj][1],Prop.evec[jj][2]);
   #ifdef STORE_VELOCITIES  
     fprintf(pfout," %f %f %f",
          Prop.aa_vel,Prop.bb_vel,Prop.cc_vel);
+    for(jj=0;jj<3;jj++)
+      fprintf(pfout," %f %f %f",Prop.evec_vel[jj][0],Prop.evec_vel[jj][1],Prop.evec_vel[jj][2]);
   #endif
     fprintf(pfout,"\n");
     fflush(pfout);

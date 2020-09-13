@@ -13,7 +13,7 @@
 #include "propiedades.h"
 #include "octree.h"
 
-#define KERNEL_LENGTH   10000
+#define KERNEL_LENGTH 10000
 
 static struct NODE *nodes;
 

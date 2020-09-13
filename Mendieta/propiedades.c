@@ -164,7 +164,7 @@ extern void propiedades(struct propiedades_st *Prop)
  			Ec[i] += dv[2]*dv[2];
  			Ec[i] *= 0.5;
 
-#ifndef COMPUTE_EP
+#ifdef COMPUTE_EP
       /* Calcula energia potencial */
 			Ep[i]  = 0.;
 		  for(j = 0; j < Prop->npart; j++)
@@ -192,7 +192,7 @@ extern void propiedades(struct propiedades_st *Prop)
 	}
 	else
 	{
-#ifndef COMPUTE_EP
+#ifdef COMPUTE_EP
     j = 2 * Prop->npart + 200;
 		force_treeallocate(j);
 		i = force_treebuild(Prop, Theta);
@@ -204,7 +204,7 @@ extern void propiedades(struct propiedades_st *Prop)
 		for(i = 0; i < Prop->npart; i++)
 		{
 
-#ifndef COMPUTE_EP
+#ifdef COMPUTE_EP
 			/* Calcula la energia potencial */
       for(dim = 0; dim < 3; dim++)
         dx[dim] = Prop->pos[3*i+dim];
@@ -230,7 +230,7 @@ extern void propiedades(struct propiedades_st *Prop)
  			Ec[i] *= 0.5;
 		}
 
-#ifndef COMPUTE_EP
+#ifdef COMPUTE_EP
 		force_treefree();
 #endif
 	}

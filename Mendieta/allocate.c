@@ -99,6 +99,7 @@
   #ifdef STORE_IDS
   if(Q->id) free(Q->id);
   #endif   
+  if(Q->sub) free(Q->sub);
 #else
   if(*Q) free(*Q);
 #endif  
