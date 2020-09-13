@@ -146,10 +146,14 @@ extern void write_properties(FILE *pfout, struct propiedades_st Prop)
   fwrite(&Prop.pcm,sizeof(type_real),3,pfout);
 #ifdef STORE_VELOCITIES  
   fwrite(&Prop.vcm,sizeof(type_real),3,pfout);
+#ifdef COMPUTE_EP
   fwrite(&Prop.mostbound,sizeof(type_real),3,pfout);
+#endif
   fwrite(&Prop.sig,sizeof(type_real),3,pfout);
   fwrite(&Prop.L,sizeof(type_real),3,pfout);
+#ifdef COMPUTE_EP
   fwrite(&Prop.lambda,sizeof(type_real),1,pfout);
+#endif
   fwrite(&Prop.m200,sizeof(type_real),1,pfout);
   fwrite(&Prop.r200,sizeof(type_real),1,pfout);
   fwrite(&Prop.v200,sizeof(type_real),1,pfout);
@@ -157,8 +161,10 @@ extern void write_properties(FILE *pfout, struct propiedades_st Prop)
   fwrite(&Prop.rvir,sizeof(type_real),1,pfout);
   fwrite(&Prop.vvir,sizeof(type_real),1,pfout);
   fwrite(&Prop.vmax,sizeof(type_real),1,pfout);
+#ifdef COMPUTE_EP
   fwrite(&Prop.Ep,sizeof(type_real),1,pfout);
   fwrite(&Prop.Ec,sizeof(type_real),1,pfout);
+#endif  
 #endif  
   fwrite(&Prop.aa,sizeof(type_real),1,pfout);
   fwrite(&Prop.bb,sizeof(type_real),1,pfout);
@@ -187,12 +193,18 @@ extern void write_properties(FILE *pfout, struct propiedades_st Prop)
   #ifdef STORE_VELOCITIES  
     fprintf(pfout,"%f %f %f ",
          Prop.vcm[0],Prop.vcm[1],Prop.vcm[2]); 
-    fprintf(pfout,"%f %f %f %f %f %f %f ",
-         Prop.sig[0],Prop.sig[1],Prop.sig[2],Prop.L[0],Prop.L[1],Prop.L[2],Prop.lambda);
+    fprintf(pfout,"%f %f %f %f %f %f ",
+         Prop.sig[0],Prop.sig[1],Prop.sig[2],Prop.L[0],Prop.L[1],Prop.L[2]);
+  #ifdef COMPUTE_EP
+    fprintf(pfout,"%f ",
+         Prop.lambda);
+  #endif
     fprintf(pfout,"%f %f %f %f %f %f %f ",
          Prop.m200,Prop.r200,Prop.v200,Prop.mvir,Prop.rvir,Prop.vvir,Prop.vmax);
+  #ifdef COMPUTE_EP
     fprintf(pfout,"%f %f ",
          Prop.Ep,Prop.Ec);
+  #endif
   #endif
     fprintf(pfout,"%f %f %f",
          Prop.aa,Prop.bb,Prop.cc);

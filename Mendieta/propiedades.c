@@ -128,20 +128,26 @@ static void forma(struct propiedades_st *Prop)
 extern void propiedades(struct propiedades_st *Prop)
 {
 #ifdef STORE_VELOCITIES  
-	const float  Theta = 0.45;
 	type_real  dis,_vmax;
 	type_real  rho;
 	type_real  _t1, _t2;
-	int    dim,i,j;
-	int    indx,iepmin;
-	int    i200, ivir;
+	int    dim, i;
+	int    indx, i200, ivir;
 	type_real  dx[3],dv[3];
-	type_real a,Epmin;
+	type_real  a;
 	gsl_vector_float *_dis;
 	gsl_permutation  *_ind;
+#ifdef COMPUTE_EP
+	const float  Theta = 0.45;
   type_real *Ec, *Ep;
+	type_real Epmin;
+	int    j, iepmin;
+#endif
 
 	a = (1.0 / (1.0 + cp.redshift));
+
+#ifdef COMPUTE_EP
+
   Ec = (type_real *) malloc(Prop->npart*sizeof(type_real));
   Ep = (type_real *) malloc(Prop->npart*sizeof(type_real));
 
@@ -164,7 +170,6 @@ extern void propiedades(struct propiedades_st *Prop)
  			Ec[i] += dv[2]*dv[2];
  			Ec[i] *= 0.5;
 
-#ifdef COMPUTE_EP
       /* Calcula energia potencial */
 			Ep[i]  = 0.;
 		  for(j = 0; j < Prop->npart; j++)
@@ -181,30 +186,25 @@ extern void propiedades(struct propiedades_st *Prop)
 				dis += (type_real)cp.soft;
 
 			  Ep[i] += 1./dis;
-
 		  }
 		  Ep[i] += (1./cp.soft);            /* Autoenergia */
 		  Ep[i] *= (GCONS*cp.Mpart*Msol*1.E10/Kpc/a);
 			Ep[i] *= (-1.);                   /* Cambio de signo para que Ep sea negativa */
-#endif
 		}
 
-	}
-	else
-	{
-#ifdef COMPUTE_EP
+	}else{
+
     j = 2 * Prop->npart + 200;
 		force_treeallocate(j);
 		i = force_treebuild(Prop, Theta);
+
 #ifdef DEBUG
     assert(i<j);
-#endif
 #endif
 
 		for(i = 0; i < Prop->npart; i++)
 		{
 
-#ifdef COMPUTE_EP
 			/* Calcula la energia potencial */
       for(dim = 0; dim < 3; dim++)
         dx[dim] = Prop->pos[3*i+dim];
@@ -215,7 +215,6 @@ extern void propiedades(struct propiedades_st *Prop)
 #endif
 	 		Ep[i] -= cp.Mpart/cp.soft;    /* Autoenergia */
   		Ep[i] *= GCONS/a*Msol*1.E10/Kpc;
-#endif
 
 			/* Calcula la energia cinetica (velocidades en [km / seg]) */
 			for(dim = 0; dim < 3; dim++)
@@ -230,42 +229,48 @@ extern void propiedades(struct propiedades_st *Prop)
  			Ec[i] *= 0.5;
 		}
 
-#ifdef COMPUTE_EP
 		force_treefree();
-#endif
 	}
 
+  Prop->Ep = Prop->Ec = 0.;
   iepmin = -1; Epmin = 0.;
-	for(i = 0; i < Prop->npart; i++)
-	{
-		if(Ep[i] < Epmin) 
-		{
-			Epmin  = (type_real)Ep[i];
-			iepmin = i;
-		}
-	}
-
-#ifdef DEBUG
-	assert((0 <= iepmin) && (iepmin<Prop->npart));
-#endif
-
-  for(dim = 0; dim < 3; dim++)
-    Prop->mostbound[dim] = Prop->pos[3*iepmin+dim];
-
-	/*Ordena por distancia al centro de potencial*/
- 	_dis = gsl_vector_float_alloc(Prop->npart);
-	_ind = gsl_permutation_alloc(Prop->npart);
-	Prop->Ep = 0.;
-	Prop->Ec = 0.;
 	for(i = 0; i < Prop->npart; i++)
 	{
 		/* Energia cinetica y potencial del halo */
 		Prop->Ep += (type_real)Ep[i];
 		Prop->Ec += (type_real)Ec[i];
 
+		if(Ep[i] < Epmin) 
+		{
+			Epmin  = (type_real)Ep[i];
+			iepmin = i;
+      for(dim = 0; dim < 3; dim++)
+        Prop->mostbound[dim] = Prop->pos[3*iepmin+dim];
+		}
+	}
+
+	Prop->Ep *= 0.5f*(type_real)cp.Mpart;
+	Prop->Ec *= (type_real)cp.Mpart;
+
+#ifdef DEBUG
+	assert((0 <= iepmin) && (iepmin<Prop->npart));
+#endif
+
+#endif
+
+	/*Ordena por distancia al centro de potencial*/
+ 	_dis = gsl_vector_float_alloc(Prop->npart);
+	_ind = gsl_permutation_alloc(Prop->npart);
+
+	for(i = 0; i < Prop->npart; i++)
+	{
 		for(dim = 0; dim < 3; dim++)
 		{
+#ifdef COMPUTE_EP
 			dx[dim] = Prop->pos[3*iepmin+dim] - Prop->pos[3*i+dim];
+#else
+      dx[dim] = Prop->pcm[dim]          - Prop->pos[3*i+dim];
+#endif
 			dv[dim] = Prop->vel[3*i + dim] - Prop->vcm[dim];
       Prop->sig[dim] += Prop->vel[3*i + dim] * Prop->vel[3*i + dim];
 		}
@@ -281,13 +286,6 @@ extern void propiedades(struct propiedades_st *Prop)
 		gsl_vector_float_set(_dis,i,dis);
 	}
 
-#ifdef DEBUG
-  assert((0<=iepmin) && (iepmin<Prop->npart));
-#endif
-
-	Prop->Ep *= 0.5f*(type_real)cp.Mpart;
-	Prop->Ec *= (type_real)cp.Mpart;
-
 	/* Sigma y pasaje a coord fisicas del L, pibe! */
 	for(dim = 0; dim < 3; dim++)
 	{
@@ -299,14 +297,15 @@ extern void propiedades(struct propiedades_st *Prop)
 
 	gsl_sort_vector_float_index(_ind,_dis);
 
+#ifdef COMPUTE_EP
 	/* Parametro adimensional de Spin */
 	Prop->lambda  = (type_real)sqrt(Prop->L[0]*Prop->L[0]+Prop->L[1]*Prop->L[1]+Prop->L[2]*Prop->L[2]);
 	Prop->lambda *= (type_real)sqrt(fabs(Prop->Ec + Prop->Ep));
 	Prop->lambda /= (type_real)(GCONS/Kpc*Msol*1.E10);
 	Prop->lambda /= (type_real)pow((double)Prop->npart*cp.Mpart,2.5);
+#endif
 
-	i200 = -1;
-	ivir = -1;
+	i200 = ivir = -1;
 	Prop->vmax = 0.;
 	_t1  = (type_real)pow(cp.lbox/(type_real)cp.npart,3);
 	_t1 *= 0.75;
@@ -362,8 +361,11 @@ extern void propiedades(struct propiedades_st *Prop)
 	gsl_vector_float_free(_dis);
 	gsl_permutation_free(_ind);
 
+#ifdef COMPUTE_EP
   free(Ec);
   free(Ep);
+#endif
+
 #endif
 
 	/* Autovalores del tensor de forma */
@@ -371,5 +373,3 @@ extern void propiedades(struct propiedades_st *Prop)
 
   return;
 }
-
-
