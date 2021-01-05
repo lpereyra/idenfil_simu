@@ -1,11 +1,11 @@
+/*  file allocate.c
+ *  Routines for allocating particle
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include "variables.h"
 #include "allocate.h"
-
-/*  file allocate.c
- *  Routines for allocating particle
-*/
 
 /*
  *  Allocates structure with the position, 

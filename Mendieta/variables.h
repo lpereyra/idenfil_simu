@@ -1,3 +1,19 @@
+/* file variables.h
+ * brief declares global variables.
+ *
+ * This file declares all global variables. 
+ * Further variables should be added here, and declared as 'extern'. 
+ * The actual existence of these variables is provided by the file 'variables.c'. 
+ * To produce 'variables.c' from 'variables.h', do the following:
+ *
+ *    - Erase all #define's, typedef's, and enum's
+ *    - add #include "variables.h", delete the #ifndef VARIABLES_H conditional
+ *    - delete all keywords 'extern'
+ *    - delete all struct definitions enclosed in {...}, e.g.
+ *      "extern struct cosmoparam {....} cp;"
+ *      becomes "struct cosmoparam cp;"
+ */
+
 #ifndef VARIABLES_H
 #define VARIABLES_H
 

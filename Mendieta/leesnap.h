@@ -1,6 +1,9 @@
 #ifndef LEESNAP_H
 #define LEESNAP_H
 
+/* Header for the standard 
+ * file GADGET format.
+ */
 struct io_header
 {
   int npart[N_part_types];             /*!< number of particles of each type in this file */
@@ -25,6 +28,9 @@ struct io_header
   char fill[60];	                     /*!< fills to 256 Bytes */
 };                                     /*!< holds header for snapshot files */
 
+
+
+/* Generic read function */
 extern void read_gadget(void);
 #ifdef CHANGE_POSITION
   extern void change_positions(type_int n);

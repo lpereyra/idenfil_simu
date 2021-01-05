@@ -1,6 +1,9 @@
 #ifndef COLORES_H
 #define COLORES_H
 
+/* Set the color output
+*/
+
 #define YELLOW(a)   fprintf(stdout,"\033[01;33m%s\033[22;0m",(a))
 #define DEFA(a)     fprintf(stdout,"\033[01;37m%s\033[22;0m",(a))
 #define BLACK(a)    fprintf(stdout,"\033[22;30m%s\033[22;0m",(a))

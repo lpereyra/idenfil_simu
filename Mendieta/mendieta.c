@@ -15,20 +15,20 @@
 
 int main(int argc, char **argv)
 {
-  double start,end;
+  double start, end;
 
   TIMER(start);
   
   init_variables(argc,argv);
   omp_set_nested(1);
 
-  /*Lee archivos de la simulacion*/
+  /* Read Simulation */
   read_gadget();
 
 #ifdef CHANGE_POSITION
-  RED("Inicio Change Positions\n");
+  RED("\nBegins Change Positions\n");
   change_positions(cp.npart);
-  GREEN("Fin Change Positions\n");
+  GREEN("\nEnd Change Positions\n");
   fflush(stdout);
 #endif
 
