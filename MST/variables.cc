@@ -7,7 +7,6 @@
 #include "leesnap.hh"
 #include "colores.hh"
 
-
 size_t     size_real;
 size_t     size_int;
 char       message[200]  ;
@@ -45,13 +44,13 @@ extern void init_variables(int argc, char **argv){
     exit(0);
   }
     
-  if(!fscanf(pfin,"%s  \n",snap.root))
+  if(!fscanf(pfin,"%s  \n",&snap.root))
   {
     sprintf(message,"can't read file `%s`\nneed snapshots directory\n",filename);RED(message);
     exit(0);
   }
 
-  if(!fscanf(pfin,"%s  \n",snap.name))
+  if(!fscanf(pfin,"%s  \n",&snap.name))
   {
     sprintf(message,"can't read file `%s`\nneed snapname\n",filename);RED(message);
     exit(0);

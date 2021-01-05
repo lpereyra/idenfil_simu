@@ -55,8 +55,6 @@ struct grup_data
   type_real  evec[9];
 };
 
-extern size_t size_real;
-extern size_t size_int;
 extern type_int  nfrac;
 extern type_real  *fof;
 extern struct particle_data *P;
