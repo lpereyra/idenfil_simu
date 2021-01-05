@@ -287,7 +287,9 @@ static void Write_Groups(const type_int niv)
 #else
     save_sub = P[k].sub == 0 ? i : P[k].sub;
 #endif
-    fwrite(&save_sub,sizeof(type_int),1,pfout);
+
+    if(nfrac != 1)
+      fwrite(&save_sub,sizeof(type_int),1,pfout);
     fwrite(&i,sizeof(type_int),1,pfout);
     fwrite(&Temp.npgrup[i],sizeof(type_int),1,pfout);    
 
@@ -396,12 +398,16 @@ static void Write_Groups(const type_int niv)
 
     propiedades(&Prop);
 
-    fwrite(&save_sub,sizeof(type_int),1,pfcentros);
+    if(nfrac != 1)
+      fwrite(&save_sub,sizeof(type_int),1,pfcentros);
     fwrite(&i,sizeof(type_int),1,pfcentros);
     write_properties(pfcentros, Prop);
 
     #ifdef FILE_ASCII
-      fprintf(pfcentros_ascii,"%u %u ",save_sub,i);
+      if(nfrac != 1)
+        fprintf(pfcentros_ascii,"%u %u ",save_sub,i);
+      else
+        fprintf(pfcentros_ascii,"%u ",i);
       write_properties_ascii(pfcentros_ascii, Prop);
     #endif
      

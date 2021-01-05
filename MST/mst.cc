@@ -7,7 +7,6 @@
 #include <algorithm>
 
 #include "variables.hh"
-#include "cosmoparam.hh"
 #include "timer.hh"
 #include "colores.hh"
 #include "leesnap.hh"
@@ -29,7 +28,7 @@ int main(int argc, char **argv)
   //Lee archivos de la simulacion
   read_gadget();
 
-  select_particles_fof(fof[0]);
+  select_particles_fof(0);
 
   read_grup_fof(fof[1]);
 

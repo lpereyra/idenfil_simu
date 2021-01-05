@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+#include <string.h>
 #include "variables.h"
 #include "allocate.h"
 #include "leesnap.h"
@@ -13,6 +14,10 @@ static void leeheader(const char *filename)
 {
   FILE *pf;
   type_int d1,d2;
+#ifdef TYPE_TWO_GADGET
+  type_int blocksize;
+  char label[4];
+#endif
 
   pf = fopen(filename,"r");
   if(pf == NULL){
@@ -20,11 +25,19 @@ static void leeheader(const char *filename)
     exit(EXIT_FAILURE);
   }
 
+#ifdef TYPE_TWO_GADGET
+  fread(&d1, sizeof(d1), 1, pf);
+  fread(&label,sizeof(char), 4, pf);
+  fread(&blocksize, sizeof(int), 1, pf);
+  fread(&d2, sizeof(d2), 1, pf);
+  assert(d1==d2);
+#endif
+
   fread(&d1, sizeof(d1), 1, pf);
   fread(&header, sizeof(header), 1, pf);
   fread(&d2, sizeof(d2), 1, pf);
   assert(d1==d2);
-  fclose(pf);
+  assert(d1==256);
 
   // Definicion estructura cosmoparam
   cp.omegam    = header.Omega0;
@@ -44,6 +57,58 @@ static void leeheader(const char *filename)
   cp.Hubble_a  = sqrt(cp.Hubble_a);
   cp.Hubble_a *= 100.0*cp.hparam;
 
+#ifdef TYPE_TWO_GADGET
+
+  type_int k, n;
+  type_real mass;
+  int flag = 0;
+  
+  while(1)
+  {
+    fread(&d1, sizeof(d1), 1, pf);
+    fread(&label, sizeof(char), 4, pf);
+    fread(&blocksize, sizeof(int), 1, pf);
+    fread(&d2, sizeof(d2), 1, pf);
+    assert(d1==d2);
+  
+    flag = strncmp(label, "MASS", 4);
+    if(flag == 0)
+    {
+  
+      fprintf(stdout,"In %s Read %c%c%c%c\n",filename,label[0],label[1],label[2],label[3]);fflush(stdout);
+      fflush(stdout);
+  
+      fread(&d1, sizeof(d1), 1, pf);
+      for(k = 0; k < N_part_types; k++){
+        for(n = 0; n < header.npart[k]; n++){
+          fread(&mass, sizeof(mass), 1, pf);
+          if(k == 1){ /*ONLY KEEP DARK MATTER PARTICLES*/
+            cp.Mpart = (double)mass;
+          }
+        }
+      }
+      fread(&d2, sizeof(d2), 1, pf);
+      assert(d1==d2);
+      break;
+  
+    }else{
+  
+      fread(&d1, sizeof(d1), 1, pf);
+      fseek(pf, d1,SEEK_CUR);
+      fread(&d2, sizeof(d2), 1, pf);
+      assert(d1==d2);
+  
+    }
+  
+  }
+
+  sprintf(message,"change Masa por particula = %f\n",cp.Mpart);
+  RED(message);
+
+#endif
+
+  fclose(pf);
+
   printf("*********************************** \n");
   printf("*   Parametros de la simulacion   * \n");
   printf("*********************************** \n");
@@ -57,6 +122,8 @@ static void leeheader(const char *filename)
   printf("  Softening = %g\n",cp.soft);
   printf("*********************************** \n");
   printf("*********************************** \n");
+
+  return;
 }
 
 static void lee(const char *filename, type_int * restrict ind)
@@ -64,6 +131,10 @@ static void lee(const char *filename, type_int * restrict ind)
   FILE *pf;
   type_int d1, d2;
   type_int k, pc, n;
+#ifdef TYPE_TWO_GADGET
+  type_int blocksize;
+  char label[4];
+#endif
 
   type_real r[3];
   #ifdef STORE_VELOCITIES
@@ -81,10 +152,29 @@ static void lee(const char *filename, type_int * restrict ind)
 
   fprintf(stdout,"Reading file: %s \n",filename); fflush(stdout);
 
+#ifdef TYPE_TWO_GADGET
+  fread(&d1, sizeof(d1), 1, pf);
+  fread(&label, sizeof(char), 4, pf);
+  fread(&blocksize, sizeof(int), 1, pf);
+  fread(&d2, sizeof(d2), 1, pf);
+  assert(d1==d2);
+  fprintf(stdout,"In %s Read %c%c%c%c\n",filename,label[0],label[1],label[2],label[3]);fflush(stdout);
+#endif
+ 
   fread(&d1, sizeof(d1), 1, pf);
   fread(&header, sizeof(header), 1, pf);
   fread(&d2, sizeof(d2), 1, pf);
   assert(d1==d2);
+  assert(d1==256);
+
+#ifdef TYPE_TWO_GADGET
+  fread(&d1, sizeof(d1), 1, pf);
+  fread(&label,sizeof(char), 4, pf);
+  fread(&blocksize, sizeof(int), 1, pf);
+  fread(&d2, sizeof(d2), 1, pf);
+  assert(d1==d2);
+  fprintf(stdout,"In %s Read %c%c%c%c\n",filename,label[0],label[1],label[2],label[3]);fflush(stdout);
+#endif
 
   fread(&d1, sizeof(d1), 1, pf);
   for(k = 0, pc = *ind; k < N_part_types; k++){
@@ -125,6 +215,15 @@ static void lee(const char *filename, type_int * restrict ind)
   fread(&d2, sizeof(d2), 1, pf);
   assert(d1==d2);
 
+#ifdef TYPE_TWO_GADGET
+  fread(&d1, sizeof(d1), 1, pf);
+  fread(&label,sizeof(char), 4, pf);
+  fread(&blocksize, sizeof(int), 1, pf);
+  fread(&d2, sizeof(d2), 1, pf);
+  assert(d1==d2);
+  fprintf(stdout,"In %s Read %c%c%c%c\n",filename,label[0],label[1],label[2],label[3]);fflush(stdout);
+#endif
+
   fread(&d1, sizeof(d1), 1, pf);
 #ifdef STORE_VELOCITIES
   for(k = 0, pc = *ind; k < N_part_types; k++){
@@ -149,6 +248,15 @@ static void lee(const char *filename, type_int * restrict ind)
 #endif
   fread(&d2, sizeof(d2), 1, pf);
   assert(d1==d2);
+
+#ifdef TYPE_TWO_GADGET
+  fread(&d1, sizeof(d1), 1, pf);
+  fread(&label,sizeof(char), 4, pf);
+  fread(&blocksize, sizeof(int), 1, pf);
+  fread(&d2, sizeof(d2), 1, pf);
+  assert(d1==d2);
+  fprintf(stdout,"In %s Read %c%c%c%c\n",filename,label[0],label[1],label[2],label[3]);fflush(stdout);
+#endif
 
   fread(&d1, sizeof(d1), 1, pf);
 #ifdef STORE_IDS

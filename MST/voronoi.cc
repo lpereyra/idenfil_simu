@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "variables.hh"
-#include "cosmoparam.hh"
 #include "grid.hh"
 #include "voronoi.hh"
 #include "voro++.hh"

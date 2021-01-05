@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <string.h>
 #include "variables.hh"
-#include "cosmoparam.hh"
 #include "grid.hh"
 
 struct gridst grid;

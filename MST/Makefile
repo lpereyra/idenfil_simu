@@ -5,7 +5,8 @@ EXTRAS += -DPERIODIC    #periodic boundary condition
 EXTRAS += -DPOSFACTOR=1000.0   #Positions in simulation Mpc/h
 #EXTRAS += -DVELFACTOR=1.0      #Velocities in km/s
 #EXTRAS += -DSTORE_VELOCITIES
-#EXTRAS += -DMCRITIC
+#EXTRAS += -DSTORE_IDS
+EXTRAS += -DTYPE_TWO_GADGET
 #EXTRAS += -DWRITE_WEIGHT
 
 #CC
