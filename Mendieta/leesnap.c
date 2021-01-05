@@ -1,3 +1,8 @@
+/* file leesnap.c
+ * Routine for read 
+ * GADGET snapshot 
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -315,7 +320,7 @@ extern void read_gadget(void)
   fflush(stdout);
   if(!allocate_particles(&P, cp.npart))  exit(1);
 
-  /***** Read POS, VEL and Id  ***********************/
+  /****** Read POS, VEL and ID ********************/
   for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++)
   {
     if(snap.nfiles>1)
@@ -328,8 +333,9 @@ extern void read_gadget(void)
 
   cp.lbox *= POSFACTOR;
 
-  fprintf(stdout,"cp.lbox %f....\n",cp.lbox);
-  fprintf(stdout,"End reading snapshot file(s)...\n"); fflush(stdout);
+  fprintf(stdout,"cp.lbox %f ...\n",cp.lbox);
+  fprintf(stdout,"End reading snapshot file(s)...\n"); 
+  fflush(stdout);
 }
 
 #ifdef CHANGE_POSITION
@@ -338,9 +344,9 @@ extern void change_positions(type_int n)
 {
   type_int ip;
 
-  printf("xmin %.1f xmax %.1f\n",pmin[0],pmax[0]);
-  printf("ymin %.1f ymax %.1f\n",pmin[1],pmax[1]);
-  printf("zmin %.1f zmax %.1f\n",pmin[2],pmax[2]);
+  fprintf(stdout,"xmin %.1f xmax %.1f\n",pmin[0],pmax[0]);
+  fprintf(stdout,"ymin %.1f ymax %.1f\n",pmin[1],pmax[1]);
+  fprintf(stdout,"zmin %.1f zmax %.1f\n",pmin[2],pmax[2]);
 
   for(ip=0;ip<n;ip++)
   {
@@ -363,6 +369,7 @@ extern void change_positions(type_int n)
   cp.lbox *= 1.001;
 
   fprintf(stdout,"Changing cp.lbox %f....\n",cp.lbox);
+  fflush(stdout);
 }
 
 #endif
