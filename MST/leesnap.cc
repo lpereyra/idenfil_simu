@@ -154,7 +154,7 @@ static void lee(char *filename, type_int *ind)
 
 #ifdef TYPE_TWO_GADGET
   fread(&d1, sizeof(d1), 1, pf);
-  fread(&label, sizeof(char), 4, pf);
+  fread(&label,sizeof(char), 4, pf);
   fread(&blocksize, sizeof(int), 1, pf);
   fread(&d2, sizeof(d2), 1, pf);
   assert(d1==d2);
@@ -371,11 +371,15 @@ extern void read_grup_fof(type_real prefix)
     fread(&Gr[i].NumPart,sizeof(type_int),1,pfin);
     fread(&Gr[i].Pos[0],sizeof(type_real),3,pfin);
 #ifdef STORE_VELOCITIES  
-	  fread(&Gr[i].vcm[0],,sizeof(type_real),3,pfin);
-	  fread(&Gr[i].mostbound[0],,sizeof(type_real),3,pfin);
-	  fread(&Gr[i].sig[0],,sizeof(type_real),3,pfin);
+	  fread(&Gr[i].vcm[0],sizeof(type_real),3,pfin);
+#ifdef COMPUTE_EP
+	  fread(&Gr[i].mostbound[0],sizeof(type_real),3,pfin);
+#endif
+	  fread(&Gr[i].sig[0],sizeof(type_real),3,pfin);
 	  fread(&Gr[i].L[0],sizeof(type_real),3,pfin);
+#ifdef COMPUTE_EP
 	  fread(&Gr[i].lambda,sizeof(type_real),1,pfin);
+#endif
 	  fread(&Gr[i].m200,sizeof(type_real),1,pfin);
 	  fread(&Gr[i].r200,sizeof(type_real),1,pfin);
 	  fread(&Gr[i].v200,sizeof(type_real),1,pfin);
@@ -383,8 +387,10 @@ extern void read_grup_fof(type_real prefix)
 	  fread(&Gr[i].rvir,sizeof(type_real),1,pfin);
 	  fread(&Gr[i].vvir,sizeof(type_real),1,pfin);
 	  fread(&Gr[i].vmax,sizeof(type_real),1,pfin);
+#ifdef COMPUTE_EP
 	  fread(&Gr[i].Ep,sizeof(type_real),1,pfin);
 	  fread(&Gr[i].Ec,sizeof(type_real),1,pfin);
+#endif  
 #endif  
 	  fread(&Gr[i].aa,sizeof(type_real),1,pfin);
 	  fread(&Gr[i].bb,sizeof(type_real),1,pfin);
@@ -396,7 +402,7 @@ extern void read_grup_fof(type_real prefix)
 	  fread(&Gr[i].bb_vel,sizeof(type_real),1,pfin);
 	  fread(&Gr[i].cc_vel,sizeof(type_real),1,pfin);
 	  for(jj=0;jj<3;jj++)
-	    fread(&Gr[i].evec_vel[jj][0],,sizeof(type_real),3,pfin);
+	    fread(&Gr[i].evec_vel[jj][0],sizeof(type_real),3,pfin);
 #endif  
     }
 

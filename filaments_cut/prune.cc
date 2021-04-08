@@ -29,7 +29,7 @@
 	    #ifdef BRANCH_SURVIVE
 	      if(Gr[idv].NumPart>N_part_survive)
 	      {
-	        j=cut+1;
+	        j += cut+1;
 	      }
 	    #endif
 	   
@@ -37,9 +37,14 @@
 	    id  = idv;
 	    idv = k;
 	    j++;        
-	
-	    if(j>cut) break;
 	  }
+		
+		#ifdef BRANCH_SURVIVE
+	    if(Gr[idv].NumPart>N_part_survive)
+	    {
+	      j += cut+1;
+	    }
+	  #endif
 	
 	  if(j<=cut)
 	    return 1;
@@ -66,11 +71,10 @@
 	    id = idv;
 	    idv = k;
 	  }
-	
-	
+
 	  if(vec[idv].size()==1)
 	    vec[idv].clear();
-	 
+
 	  return;
 	}
 	

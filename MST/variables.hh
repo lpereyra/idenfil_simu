@@ -58,7 +58,7 @@ struct particle_data
 #ifdef STORE_VELOCITIES
   type_real      Vel[3];
 #endif
-#ifdef STORE_VELOCITIES
+#ifdef STORE_IDS
   type_int      Id;
 #endif
   type_int       sub;

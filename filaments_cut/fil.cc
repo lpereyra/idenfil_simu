@@ -118,6 +118,7 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
   std::vector<type_int> aux;
   std::vector<std::vector<type_int> > segmentos;
 
+	/*
   j = 0;
   while(!vec_orden.empty())
   {
@@ -164,8 +165,115 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
 
     vec_orden.pop_back();
   }
+	*/
+
+  j = 0;
+  while(!vec_orden.empty())
+  {
+    i = vec_orden.back().second;
+
+    if(Padre[i]>=cp.ngrup || Rank[i] >= cp.ngrup)
+		{
+    	vec_orden.pop_back();
+			continue;
+		}
+
+    aux.push_back(i);
+    Rank[i] += cp.ngrup;
+    id = Padre[i];
+
+    while(id<cp.ngrup)
+    {
+      if(Rank[id]>=cp.ngrup)
+      {
+        aux.push_back(id);
+    		Rank[id] += cp.ngrup;
+        break;
+      }
+
+      if(Gr[id].NumPart>NumPartCut)
+      {
+        aux.push_back(id);
+        Rank[id] += cp.ngrup;
+        segmentos.push_back(aux);
+        aux.clear();
+        j++;
+
+				if(Padre[id]>=cp.ngrup)
+					break;
+      }
+
+      aux.push_back(id);
+      Rank[id] += cp.ngrup;
+      id = Padre[id];               
+    }
+
+		if(aux.size() > 1) // es igual a uno, no entra al while
+		{
+			segmentos.push_back(aux);
+			j++;
+		}
+
+    aux.clear();
+    vec_orden.pop_back();
+  }
 
   assert(segmentos.size()==j);
+
+  for(i=0;i<j;i++)
+  {
+	  if(Gr[segmentos[i][0]].NumPart>Gr[segmentos[i].back()].NumPart)
+		{
+	  	id = segmentos[i].size()-1;
+			aux.push_back(segmentos[i][id]);
+	  	for(k=segmentos[i].size()-1;k>1;k--)
+	  	{
+	  	  if(Gr[segmentos[i][id]].NumPart<Gr[segmentos[i][k-1]].NumPart)
+				{
+					aux.push_back(segmentos[i][k-1]);
+					segmentos.push_back(aux);
+					aux.clear();
+					id = k-1;
+					aux.push_back(segmentos[i][id]);
+				}else{
+					aux.push_back(segmentos[i][k-1]);
+				}
+	 		}
+			aux.push_back(segmentos[i][0]);
+
+			if(aux.size() != segmentos[i].size())
+				segmentos[i].swap(aux);
+			aux.clear();
+			
+		}else{
+
+	  	id = 0;
+			aux.push_back(segmentos[i][id]);
+	  	for(k=1;k<segmentos[i].size()-1;k++)
+	  	{
+	  	  if(Gr[segmentos[i][id]].NumPart<Gr[segmentos[i][k]].NumPart)
+				{
+					aux.push_back(segmentos[i][k]);
+					segmentos.push_back(aux);
+					aux.clear();
+					id = k;
+					aux.push_back(segmentos[i][id]);
+				}else{
+					aux.push_back(segmentos[i][k]);
+				}
+	 		}
+			aux.push_back(segmentos[i][segmentos[i].size()-1]);
+
+			if(aux.size() != segmentos[i].size())
+				segmentos[i].swap(aux);
+			aux.clear();
+
+		}
+	}
+
+	fprintf(stdout,"Seg Antes %u\n",j);
+	fprintf(stdout,"Seg %lu\n",segmentos.size());
+	j = segmentos.size();
 
 	#ifdef NEW
 		set_name("new_segmentos",filename,NumPartCut,fof);
@@ -206,11 +314,11 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
     if(Gr[aux[0]].NumPart>NumPartCut) k++;
     if(Gr[id].NumPart>NumPartCut)     k++;
 
-    fwrite(&k,sizeof(int),1,pfpropiedades);
+    fwrite(&k,sizeof(type_int),1,pfpropiedades);
 
-    k = (int)aux.size();
-    fwrite(&k,sizeof(int),1,pfout);
-    fwrite(&k,sizeof(int),1,pfpropiedades);
+    k = (type_int)aux.size();
+    fwrite(&k,sizeof(type_int),1,pfout);
+    fwrite(&k,sizeof(type_int),1,pfpropiedades);
 
     fwrite(&Gr[aux[0]].Mass,sizeof(type_real),1,pfpropiedades); // ESCRIBE LA MASA DE LA PRIMERA PUNTA
     fwrite(&Gr[id].Mass,sizeof(type_real),1,pfpropiedades);     // ESCRIBE LA MASA DE LA SEGUNDA PUNTA
@@ -219,7 +327,7 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
     fwrite(&Gr[id].vcm,sizeof(type_real),3,pfpropiedades);     // ESCRIBE LA VELOCIDAD DE LA SEGUNDA
 
     r = Gr[aux[0]].Mass/Gr[id].Mass;
-    fwrite(&r,sizeof(float),1,pfpropiedades); // ESCRIBE LA RAZON DE MASAS
+    fwrite(&r,sizeof(type_real),1,pfpropiedades); // ESCRIBE LA RAZON DE MASAS
 
     dux = Gr[id].Pos[0] - Gr[aux[0]].Pos[0];
     duy = Gr[id].Pos[1] - Gr[aux[0]].Pos[1];
@@ -244,11 +352,11 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
 
     lenr = rms = 0.0f;
 
-    fwrite(&aux[0],sizeof(int),1,pfout);
+    fwrite(&aux[0],sizeof(type_int),1,pfout);
 
     for(k=1;k<aux.size();k++)
     {
-      fwrite(&aux[k],sizeof(int),1,pfout);
+      fwrite(&aux[k],sizeof(type_int),1,pfout);
 
       dx = Gr[aux[k]].Pos[0] - Gr[aux[k-1]].Pos[0];
       dy = Gr[aux[k]].Pos[1] - Gr[aux[k-1]].Pos[1];
@@ -295,13 +403,13 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
 
     r = elong/lenr;
 
-    k = (int)aux.size();
-    rms /= (float)k;
+    k = (type_int)aux.size();
+    rms /= (type_real)k;
     rms = sqrt(rms);
 
-    fwrite(&lenr,sizeof(float),1,pfpropiedades);
-    fwrite(&r,sizeof(float),1,pfpropiedades);
-    fwrite(&rms,sizeof(float),1,pfpropiedades);
+    fwrite(&lenr,sizeof(type_real),1,pfpropiedades);
+    fwrite(&r,sizeof(type_real),1,pfpropiedades);
+    fwrite(&rms,sizeof(type_real),1,pfpropiedades);
 
     aux.clear();
   }
