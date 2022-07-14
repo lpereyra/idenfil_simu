@@ -32,13 +32,13 @@ extern void init_variables(int argc, char **argv){
     exit(0);
   }
     
-  if(!fscanf(pfin,"%s  \n",snap.root))
+  if(!fscanf(pfin,"%s  \n",&snap.root))
   {
     sprintf(message,"can't read file `%s`\nneed snapshots directory\n",filename);RED(message);
     exit(0);
   }
 
-  if(!fscanf(pfin,"%s  \n",snap.name))
+  if(!fscanf(pfin,"%s  \n",&snap.name))
   {
     sprintf(message,"can't read file `%s`\nneed snapname\n",filename);RED(message);
     exit(0);
@@ -88,7 +88,7 @@ extern void init_variables(int argc, char **argv){
   BLUE("********** Information ***********\n");
   sprintf(message,"Snapshots directory:     %s\n",snap.root);BLUE(message);
   sprintf(message,"Snapname:                %s\n",snap.name);BLUE(message);
-sprintf(message,"Snapnum:                 %d\n",snap.num);BLUE(message);
+	sprintf(message,"Snapnum:                 %d\n",snap.num);BLUE(message);
   sprintf(message,"# of snapshots:          %d\n",snap.nfiles);BLUE(message);
   sprintf(message,"Softening of simulation: %lf \n",cp.soft);BLUE(message);
   sprintf(message,"Identification steps:    %d\n",nfrac);BLUE(message);

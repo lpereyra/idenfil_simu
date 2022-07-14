@@ -1,8 +1,17 @@
+/*  file allocate.c
+ *  Routines for allocating particle
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include "variables.h"
 #include "allocate.h"
 
+/*
+ *  Allocates structure with the position, 
+ *  velocity, ids of the particles and
+ *  an auxiliary array for FoF groups.
+ */ 
 #ifdef COLUMN
   extern int allocate_particles(struct particle_data  *Q, const type_int size)
 #else
@@ -80,6 +89,11 @@
   return ( 1 );
 }
 
+/*
+ *  Deallocates structure with the position, 
+ *  velocity, ids of the particles and
+ *  an auxiliary array for FoF groups.
+ */ 
 #ifdef COLUMN
   extern void free_particles(struct particle_data  *Q)
 #else
@@ -106,6 +120,11 @@
 
 }
 
+/*
+ *  Reallocates structure with the position, 
+ *  velocity, ids of the particles and
+ *  an auxiliary array for FoF groups.
+ */ 
 #ifdef COLUMN
   extern int reallocate_particles(struct particle_data  *Q, const type_int size)
 #else

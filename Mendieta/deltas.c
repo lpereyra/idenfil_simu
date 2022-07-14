@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <stdbool.h>
 #include "variables.h"
 #include "deltas.h"
 
@@ -33,7 +32,7 @@ extern double deltavir( const double z )
 		x+= cp.omegal;
 		x = cp.omegam*pow(1+z,3)/x;
 		q = (18.*M_PI*M_PI+82.*(x-1.)-39.*pow(x-1.,2))/x;
-		/* Bryan & Norman 1998ApJ,495,80B, apendice Bolshoi*/
+		/* Bryan & Norman 1998ApJ,495,80B, Bolshoi appendix*/
   }
   return q;
 }

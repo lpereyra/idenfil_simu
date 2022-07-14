@@ -1,3 +1,8 @@
+/* file leesnap.c
+ * Routine for read 
+ * GADGET snapshot 
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -8,9 +13,14 @@
 #include "leesnap.h"
 #include "colores.h"
 
+/* Header for the standard 
+ * file GADGET format.
+ */
 static struct io_header header;
 
-static void leeheader(const char *filename)
+/* Read header GADGET format
+*/
+static void read_header(const char *filename)
 {
   FILE *pf;
   type_int d1,d2;
@@ -39,7 +49,7 @@ static void leeheader(const char *filename)
   assert(d1==d2);
   assert(d1==256);
 
-  // Definicion estructura cosmoparam
+  // set structure cosmoparam
   cp.omegam    = header.Omega0;
   cp.omegal    = header.OmegaLambda;
   cp.omegak    = 1.0 - cp.omegam - cp.omegal;
@@ -47,8 +57,6 @@ static void leeheader(const char *filename)
   cp.lbox      = header.BoxSize;
   cp.npart     = header.npartTotal[1];
   cp.Mpart     = header.mass[1];
-  //cp.Mpart    = 3.143E-4*cp.hparam;  /*A-5*/
-  //cp.Mpart    = 3.929E-5*cp.hparam;  /*A-4*/
   cp.redshift  = header.redshift;
   cp.aexp      = ( 1.0 / ( 1.0 + cp.redshift ) );
   cp.Hubble_a  = cp.omegam/cp.aexp/cp.aexp/cp.aexp;
@@ -109,19 +117,20 @@ static void leeheader(const char *filename)
 
   fclose(pf);
 
-  printf("*********************************** \n");
-  printf("*   Parametros de la simulacion   * \n");
-  printf("*********************************** \n");
-  printf("  Numero de particulas = %u \n", cp.npart);
-  printf("  Lado del box = %g \n", cp.lbox);
-  printf("  Redshift = %g \n", cp.redshift);
-  printf("  Omega Materia = %g \n", cp.omegam);
-  printf("  Omega Lambda = %g \n", cp.omegal);
-  printf("  Parametro de Hubble = %g \n",cp.hparam);
-  printf("  Masa por particula = %g \n",cp.Mpart);
-  printf("  Softening = %g\n",cp.soft);
-  printf("*********************************** \n");
-  printf("*********************************** \n");
+  fprintf(stdout,"*********************************** \n");
+  fprintf(stdout,"*   Parametros de la simulacion   * \n");
+  fprintf(stdout,"*********************************** \n");
+  fprintf(stdout,"  Particles Number = %u \n", cp.npart);
+  fprintf(stdout,"  Boxsize  = %g \n", cp.lbox);
+  fprintf(stdout,"  Redshift = %g \n", cp.redshift);
+  fprintf(stdout,"  Omega Matter = %g \n", cp.omegam);
+  fprintf(stdout,"  Omega Lambda = %g \n", cp.omegal);
+  fprintf(stdout,"  Hubble parameter = %g \n",cp.hparam);
+  fprintf(stdout,"  Particle Mass = %g \n",cp.Mpart);
+  fprintf(stdout,"  Softening = %g\n",cp.soft);
+  fprintf(stdout,"*********************************** \n");
+  fprintf(stdout,"*********************************** \n");
+  fflush(stdout);
 
   return;
 }
@@ -303,14 +312,15 @@ extern void read_gadget(void)
   else
     sprintf(filename,"%s%s",snap.root,snap.name);
 
-  leeheader(filename);
+  read_header(filename);
 
-  /****** ALLOCATACION TEMPORAL DE LAS PARTICULAS ****************/
+  /****** Allocate total particles ****************/
   total_memory = (float)cp.npart*sizeof(struct particle_data)/1024.0/1024.0/1024.0;
-  printf("Allocating %.5zu Gb for %u particles\n",total_memory,cp.npart);
+  fprintf(stdout,"Allocating %.5zu Gb for %u particles\n", total_memory, cp.npart);
+  fflush(stdout);
   if(!allocate_particles(&P, cp.npart))  exit(1);
 
-  /***** LEE POS Y VEL DE LAS PARTICULAS ***********************/
+  /****** Read POS, VEL and ID ********************/
   for(ifile = 0, ind = 0; ifile < snap.nfiles; ifile++)
   {
     if(snap.nfiles>1)
@@ -323,8 +333,9 @@ extern void read_gadget(void)
 
   cp.lbox *= POSFACTOR;
 
-  fprintf(stdout,"cp.lbox %f....\n",cp.lbox);
-  fprintf(stdout,"End reading snapshot file(s)...\n"); fflush(stdout);
+  fprintf(stdout,"cp.lbox %f ...\n",cp.lbox);
+  fprintf(stdout,"End reading snapshot file(s)...\n"); 
+  fflush(stdout);
 }
 
 #ifdef CHANGE_POSITION
@@ -333,9 +344,9 @@ extern void change_positions(type_int n)
 {
   type_int ip;
 
-  printf("xmin %.1f xmax %.1f\n",pmin[0],pmax[0]);
-  printf("ymin %.1f ymax %.1f\n",pmin[1],pmax[1]);
-  printf("zmin %.1f zmax %.1f\n",pmin[2],pmax[2]);
+  fprintf(stdout,"xmin %.1f xmax %.1f\n",pmin[0],pmax[0]);
+  fprintf(stdout,"ymin %.1f ymax %.1f\n",pmin[1],pmax[1]);
+  fprintf(stdout,"zmin %.1f zmax %.1f\n",pmin[2],pmax[2]);
 
   for(ip=0;ip<n;ip++)
   {
@@ -358,7 +369,7 @@ extern void change_positions(type_int n)
   cp.lbox *= 1.001;
 
   fprintf(stdout,"Changing cp.lbox %f....\n",cp.lbox);
-
+  fflush(stdout);
 }
 
 #endif

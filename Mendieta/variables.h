@@ -1,3 +1,19 @@
+/* file variables.h
+ * brief declares global variables.
+ *
+ * This file declares all global variables. 
+ * Further variables should be added here, and declared as 'extern'. 
+ * The actual existence of these variables is provided by the file 'variables.c'. 
+ * To produce 'variables.c' from 'variables.h', do the following:
+ *
+ *    - Erase all #define's, typedef's, and enum's
+ *    - add #include "variables.h", delete the #ifndef VARIABLES_H conditional
+ *    - delete all keywords 'extern'
+ *    - delete all struct definitions enclosed in {...}, e.g.
+ *      "extern struct cosmoparam {....} cp;"
+ *      becomes "struct cosmoparam cp;"
+ */
+
 #ifndef VARIABLES_H
 #define VARIABLES_H
 
@@ -23,7 +39,9 @@
 
 #define N_part_types 6    /* Number of particle types */
 
-/* Precision del codigo (reales) */
+/* If defined, the type variable 
+ * is set to "double", otherwise to FLOAT 
+ */
 #ifdef PRECDOUBLE
 typedef double type_real;
 #else
@@ -39,25 +57,25 @@ typedef unsigned int type_int;
 
 #define RHOCRIT 2.77525E11   /* Densidad crítica del Universo [Msol h² / Mpc³] */
 #define GCONS 6.67300E-20    /* Constante de Gravitación [km³ / kg / seg²]     */
-#define Msol 1.9891E30       /* Masa del Sol [Kg]                              */
+#define Msol 1.9891E30       /* Sun Mass [Kg]                              */
 #define Kpc 3.08568025E16    /* Kiloparsec -> Kilometro                        */  
 
 extern struct cosmoparam
 {
-  double   omegam      ;  /* Omega Materia                         */
-  double   omegal      ;  /* Omega Lambda                          */
-  double   omegak      ;  /* Omega Curvatura                       */
-  double   hparam      ;  /* Parámetro de Hubble adimensional      */
-  double   lbox        ;  /* Lado del box [Kpc / h]                */
-  double   Mpart       ;  /* Masa de la partícula [10^10 Msol / h] */
-  type_int npart       ;  /* Número de partículas                  */
-  double   redshift    ;  /* Redshift                              */
-  double   aexp        ;  /*                                       */
-  double   Hubble_a    ;  /*                                       */
-  double   soft        ;  /* Softening [kpc / h]                   */
+  double   omegam    ;  /* Omega Matter                             */
+  double   omegal    ;  /* Omega Lambda                             */
+  double   omegak    ;  /* Omega Curvature                          */
+  double   hparam    ;  /* Hubble constant in units of 100 km/s/Mpc */
+  double   lbox      ;  /* Boxsize [Kpc / h]                        */
+  double   Mpart     ;  /* Particle Mass [10^10 Msol / h]           */
+  int      npart     ;  /* Particle number                          */
+  double   redshift  ;  /* Redshift                                 */
+  double   aexp      ;  /*                                          */
+  double   Hubble_a  ;  /*                                          */
+  double   soft      ;  /* Softening [Kpc / h]                      */
 } cp;
 
-/* Input and output files */
+/* Input simulation files */
 extern struct SnapST
 {
   int nfiles;
@@ -72,7 +90,9 @@ extern struct gridst
   type_int *icell;
 } grid;
 
-/* Posiciones, velocidades y energias de las partículas */
+/* This structure holds all the information that is
+ * stored for each particle of the simulation.
+ */
 #ifdef COLUMN
 
   extern struct particle_data 
