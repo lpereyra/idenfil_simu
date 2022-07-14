@@ -220,56 +220,57 @@ type_int * __restrict__ Padre, type_int * __restrict__ Rank, type_real * __restr
 
   assert(segmentos.size()==j);
 
-  for(i=0;i<j;i++)
-  {
-	  if(Gr[segmentos[i][0]].NumPart>Gr[segmentos[i].back()].NumPart)
-		{
-	  	id = segmentos[i].size()-1;
-			aux.push_back(segmentos[i][id]);
-	  	for(k=segmentos[i].size()-1;k>1;k--)
-	  	{
-	  	  if(Gr[segmentos[i][id]].NumPart<Gr[segmentos[i][k-1]].NumPart)
-				{
-					aux.push_back(segmentos[i][k-1]);
-					segmentos.push_back(aux);
-					aux.clear();
-					id = k-1;
-					aux.push_back(segmentos[i][id]);
-				}else{
-					aux.push_back(segmentos[i][k-1]);
-				}
-	 		}
-			aux.push_back(segmentos[i][0]);
+	/////////////Version que subdivide filamentos
+  //////////for(i=0;i<j;i++)
+  //////////{
+	//////////  if(Gr[segmentos[i][0]].NumPart>Gr[segmentos[i].back()].NumPart)
+	//////////	{
+	//////////  	id = segmentos[i].size()-1;
+	//////////		aux.push_back(segmentos[i][id]);
+	//////////  	for(k=segmentos[i].size()-1;k>1;k--)
+	//////////  	{
+	//////////  	  if(Gr[segmentos[i][id]].NumPart<Gr[segmentos[i][k-1]].NumPart)
+	//////////			{
+	//////////				aux.push_back(segmentos[i][k-1]);
+	//////////				segmentos.push_back(aux);
+	//////////				aux.clear();
+	//////////				id = k-1;
+	//////////				aux.push_back(segmentos[i][id]);
+	//////////			}else{
+	//////////				aux.push_back(segmentos[i][k-1]);
+	//////////			}
+	////////// 		}
+	//////////		aux.push_back(segmentos[i][0]);
 
-			if(aux.size() != segmentos[i].size())
-				segmentos[i].swap(aux);
-			aux.clear();
-			
-		}else{
+	//////////		if(aux.size() != segmentos[i].size())
+	//////////			segmentos[i].swap(aux);
+	//////////		aux.clear();
+	//////////		
+	//////////	}else{
 
-	  	id = 0;
-			aux.push_back(segmentos[i][id]);
-	  	for(k=1;k<segmentos[i].size()-1;k++)
-	  	{
-	  	  if(Gr[segmentos[i][id]].NumPart<Gr[segmentos[i][k]].NumPart)
-				{
-					aux.push_back(segmentos[i][k]);
-					segmentos.push_back(aux);
-					aux.clear();
-					id = k;
-					aux.push_back(segmentos[i][id]);
-				}else{
-					aux.push_back(segmentos[i][k]);
-				}
-	 		}
-			aux.push_back(segmentos[i][segmentos[i].size()-1]);
+	//////////  	id = 0;
+	//////////		aux.push_back(segmentos[i][id]);
+	//////////  	for(k=1;k<segmentos[i].size()-1;k++)
+	//////////  	{
+	//////////  	  if(Gr[segmentos[i][id]].NumPart<Gr[segmentos[i][k]].NumPart)
+	//////////			{
+	//////////				aux.push_back(segmentos[i][k]);
+	//////////				segmentos.push_back(aux);
+	//////////				aux.clear();
+	//////////				id = k;
+	//////////				aux.push_back(segmentos[i][id]);
+	//////////			}else{
+	//////////				aux.push_back(segmentos[i][k]);
+	//////////			}
+	////////// 		}
+	//////////		aux.push_back(segmentos[i][segmentos[i].size()-1]);
 
-			if(aux.size() != segmentos[i].size())
-				segmentos[i].swap(aux);
-			aux.clear();
+	//////////		if(aux.size() != segmentos[i].size())
+	//////////			segmentos[i].swap(aux);
+	//////////		aux.clear();
 
-		}
-	}
+	//////////	}
+	//////////}
 
 	fprintf(stdout,"Seg Antes %u\n",j);
 	fprintf(stdout,"Seg %lu\n",segmentos.size());

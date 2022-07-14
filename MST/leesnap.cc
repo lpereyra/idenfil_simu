@@ -290,7 +290,6 @@ extern void read_gadget(void)
 
 extern void select_particles_fof(type_int idx)
 {
-
   char filename[200];
   type_int  i,j,k,id,idv,len;
   FILE *pfin;

@@ -113,9 +113,9 @@ static void forma(struct propiedades_st *Prop)
   {
     for(j=0;j<3;j++)
     {
-      Prop->evec[i][0] = (type_real)gsl_matrix_get(evec,0,j);
-      Prop->evec[i][1] = (type_real)gsl_matrix_get(evec,1,j);
-      Prop->evec[i][2] = (type_real)gsl_matrix_get(evec,2,j);
+      Prop->evec_vel[i][0] = (type_real)gsl_matrix_get(evec,0,j);
+      Prop->evec_vel[i][1] = (type_real)gsl_matrix_get(evec,1,j);
+      Prop->evec_vel[i][2] = (type_real)gsl_matrix_get(evec,2,j);
     }
   }
 #endif
