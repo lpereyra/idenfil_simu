@@ -255,18 +255,21 @@ extern void propiedades(struct propiedades_st *Prop)
 	/*Ordena por distancia al centro de potencial*/
  	_dis = gsl_vector_float_alloc(Prop->npart);
 	_ind = gsl_permutation_alloc(Prop->npart);
+	
+  for(dim = 0; dim < 3; dim++)
+    Prop->L[dim] = Prop->sig[dim] = 0.0;
 
 	for(i = 0; i < Prop->npart; i++)
 	{
 		for(dim = 0; dim < 3; dim++)
 		{
 #ifdef COMPUTE_EP
-			dx[dim] = Prop->pos[3*iepmin+dim] - Prop->pos[3*i+dim];
-#else
-      dx[dim] = Prop->pcm[dim]          - Prop->pos[3*i+dim];
+			dx[dim] = Prop->pos[3*i+dim] - Prop->pos[3*iepmin+dim];
+#else                                
+      dx[dim] = Prop->pos[3*i+dim] - Prop->pcm[dim]         ;
 #endif
-			dv[dim] = Prop->vel[3*i + dim] - Prop->vcm[dim];
-      Prop->sig[dim] += Prop->vel[3*i + dim] * Prop->vel[3*i + dim];
+			dv[dim] = Prop->vel[3*i+dim] - Prop->vcm[dim];
+      Prop->sig[dim] += Prop->vel[3*i+dim] * Prop->vel[3*i+dim];
 		}
 
 		Prop->L[0] += dx[1]*dv[2] - dx[2]*dv[1];
@@ -342,7 +345,7 @@ extern void propiedades(struct propiedades_st *Prop)
 
 	/* Rvir y Mvir */
 	if(ivir == -1) ivir = Prop->npart-1;
-	indx = gsl_permutation_get(_ind,ivir);
+  indx = gsl_permutation_get(_ind,ivir);
 	dis  = gsl_vector_float_get(_dis,indx);
 	Prop->rvir = dis;
 	Prop->mvir = (type_real)((double)(ivir+1)*cp.Mpart);

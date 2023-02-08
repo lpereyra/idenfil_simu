@@ -71,10 +71,13 @@ static void force_setkernel(void)
 static void add_particle_props_to_node(struct NODE *no, type_real *pos, type_int p)
 {
   int i;
+
   for( i = 0 ; i < 3 ; i++)
     no->s[i] += (type_real)cp.Mpart * (pos[3*p+i] - no->center[i]);
 
   no->mass += (type_real)cp.Mpart;
+  
+  return;
 }
 
 static void force_setupnonrecursive(struct NODE *no)
@@ -99,8 +102,8 @@ static void force_setupnonrecursive(struct NODE *no)
 /* packs the particles of group 'gr' into into BH-trees */
 extern int force_treebuild(struct propiedades_st *Prop, float thetamax)
 {
-  type_int i;
   int j;
+  type_int i;
   int    subp,subi,p,subnode,fak;
   type_real  length;
   type_real  dx,dy,dz;
@@ -126,7 +129,6 @@ extern int force_treebuild(struct propiedades_st *Prop, float thetamax)
   for(j = 1 , length = xmax[0]-xmin[0] ; j < 3 ; j++)  /* determine maxmimum extension */
     if((xmax[j]-xmin[j]) > length)
       length = xmax[j]-xmin[j];
-  
   length *= 1.001;
 
   /* insert first particle in root node */
@@ -186,20 +188,20 @@ extern int force_treebuild(struct propiedades_st *Prop, float thetamax)
       {
         p = th->partind;
 
-        for( j = 0 , subp = 0 , fak = 1 ; j < 3 ; j++ , fak <<= 1)
+        for(j = 0 , subp = 0 , fak = 1 ; j < 3 ; j++ , fak <<= 1)
           if(Prop->pos[3*p+j] > th->center[j])
             subp += fak;
 
         nfree->father = th;
         
-        for( j = 0 ; j < 8 ; j++)
+        for(j = 0 ; j < 8 ; j++)
           nfree->suns[j] = 0;
 
         nfree->sibling = 0;
         
         nfree->len = th->len/2;
     
-          for(j = 0 ; j < 3 ; j++)
+        for(j = 0 ; j < 3 ; j++)
           nfree->center[j] = th->center[j];
 
         for(j = 0 ; j < 3 ; j++)
@@ -214,7 +216,7 @@ extern int force_treebuild(struct propiedades_st *Prop, float thetamax)
 
         for(j = 0 ; j < 3 ; j++)
           nfree->s[j] = (type_real)cp.Mpart*(Prop->pos[3*p+j] - nfree->center[j]);
-        
+
         th->partind = -1;
         th->suns[subp] = nfree;
       

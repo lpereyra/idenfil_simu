@@ -12,7 +12,7 @@ struct propiedades_st
   type_real  pcm[3];
   type_real  aa, bb, cc;
   type_real  evec[3][3];
-#ifdef STORE_VELOCITIES  
+#ifdef STORE_VELOCITIES
   type_real  *vel;
   type_real  vcm[3], sig[3];
   type_real  r200, m200, v200;
